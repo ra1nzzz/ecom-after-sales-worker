@@ -2490,6 +2490,10 @@ export default {
         const lines = csv.split('\n').filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
+        // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
+        while (headers.length > 0 && !headers[headers.length - 1].trim()) {
+          headers.pop();
+        }
         return jsonResponse({
           success: true,
           data: { headers: headers, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, rowCount: sheet.row_count, colCount: sheet.col_count, existingDataLines: lines.length - 1 }
@@ -2521,6 +2525,10 @@ export default {
         const lines = csv.split('\n').filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
+        // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
+        while (headers.length > 0 && !headers[headers.length - 1].trim()) {
+          headers.pop();
+        }
         // 并行执行：LLM 提取 + 旺店通自动匹配（两者互不依赖）
         const wdtCfg = config.wangdian || {};
         const wdtEnabled = wdtCfg.sid && wdtCfg.key && wdtCfg.secret && wdtCfg.salt;

@@ -1810,9 +1810,14 @@ function searchRecords(records, query) {
 }
 
 async function writeRow(tencentDocsConfig, sessionId, fileId, sheetId, startRow, values) {
-  const MCP_ROW_OFFSET = 1;
+  // 腾讯文档 sheet.set_range_value 接口中：
+  // - row 为 1-based（从 1 开始）
+  // - col 为 0-based（从 0 开始）
   const cellValues = values.map((val, idx) => ({
-    row: startRow + MCP_ROW_OFFSET, col: idx + MCP_ROW_OFFSET, value_type: 'STRING', string_value: String(val)
+    row: startRow + 1,
+    col: idx,
+    value_type: 'STRING',
+    string_value: String(val)
   }));
   const result = await callToolWithSession(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sessionId, 'sheet.set_range_value', {
     file_id: fileId, sheet_id: sheetId, values: cellValues

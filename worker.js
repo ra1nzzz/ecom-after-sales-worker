@@ -1,5 +1,6 @@
 // --- HTML (embedded as template literal) ---
-const HTML = `<!DOCTYPE html>
+const HTML = `
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -575,13 +576,13 @@ const HTML = `<!DOCTYPE html>
         <span class="header-tag">v2.1.0</span>
         <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="切换主题" style="margin-left:auto;background:var(--bg-hover);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all 0.2s;">🌙</button>
       </div>
-      <h1>综合电商售后处理系统</h1>
-      <p class="header-sub">查询 · 写入 · 设置 — 数据来源：<code>腾讯文档</code></p>
+      <h1>和旭电商售后小工具</h1>
+      <p class="header-sub">查询 · 登记 · 设置 — 数据来源：<code>腾讯文档</code><code>旺店通</code></p>
     </header>
 
     <nav class="tabs">
       <button class="tab active" data-view="query" onclick="switchView('query')">查询</button>
-      <button class="tab" data-view="write" onclick="switchView('write')">写入</button>
+      <button class="tab" data-view="write" onclick="switchView('write')">登记</button>
       <button class="tab" data-view="settings" onclick="switchView('settings')">设置</button>
     </nav>
 
@@ -660,7 +661,7 @@ const HTML = `<!DOCTYPE html>
             <thead>
               <tr>
                 <th>原始单号</th><th>物流单号</th><th>店铺名称</th><th>平台</th>
-                <th>物流公司</th><th>订单状态</th><th>收件地区</th>
+                <th>物流公司</th><th>订单状态</th><th>订单金额</th>
               </tr>
             </thead>
             <tbody id="wdtResultBody"></tbody>
@@ -672,7 +673,7 @@ const HTML = `<!DOCTYPE html>
     <!-- Write View -->
     <section class="view" id="view-write">
       <div class="card">
-        <h2 class="card-title">写入新记录</h2>
+        <h2 class="card-title">登记新记录</h2>
         <div class="form-row">
           <div class="form-group">
             <label>选择文档</label>
@@ -684,11 +685,11 @@ const HTML = `<!DOCTYPE html>
           </div>
         </div>
         <div class="form-group">
-          <label>用自然语言描述要写入的内容</label>
+          <label>用自然语言描述要登记的内容</label>
           <textarea id="writeDescription" placeholder="例如：9831745985570 丢件理赔54.9元 运费7元&#10;系统会自动识别物流单号并从旺店通ERP反查原始单号、店铺名、平台"></textarea>
         </div>
         <div class="btn-row">
-          <button class="btn btn-primary" id="extractBtn" onclick="doExtract()">提取并预览</button>
+          <button class="btn btn-primary" id="extractBtn" onclick="doExtract()">登记预览</button>
         </div>
       </div>
 
@@ -700,7 +701,7 @@ const HTML = `<!DOCTYPE html>
       </div>
 
       <div class="card" id="previewPanel" style="display:none">
-        <h2 class="card-title">写入预览</h2>
+        <h2 class="card-title">登记预览</h2>
         <div id="missingFields" class="missing-fields" style="display:none"></div>
         <div class="table-scroll">
           <table class="preview-table">
@@ -710,7 +711,7 @@ const HTML = `<!DOCTYPE html>
         </div>
         <div id="debugInfo" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);"></div>
         <div style="margin-top:16px;display:flex;gap:10px">
-          <button class="btn btn-primary" onclick="doWrite()">确认写入</button>
+          <button class="btn btn-primary" onclick="doWrite()">确认登记</button>
           <button class="btn btn-secondary" onclick="cancelWrite()">取消</button>
         </div>
       </div>
@@ -765,6 +766,20 @@ const HTML = `<!DOCTYPE html>
         </div>
 
         <div class="settings-section">
+          <h3>默认文档</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>查询 TAB 默认文档</label>
+              <select id="cfgQueryDefaultDoc" onchange="onQueryDefaultDocChange()"></select>
+            </div>
+            <div class="form-group">
+              <label>登记 TAB 默认文档</label>
+              <select id="cfgWriteDefaultDoc" onchange="onWriteDefaultDocChange()"></select>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <h3>文档配置</h3>
           <div id="docListContainer"></div>
           <button class="btn btn-secondary" onclick="addDocument()" style="margin-top:8px">+ 添加文档</button>
@@ -813,7 +828,7 @@ const HTML = `<!DOCTYPE html>
         <div class="form-group">
           <label>
             <input type="checkbox" id="modalDocDefault" style="width:auto;display:inline;margin-right:6px"/>
-            设为默认文档
+            同时设为查询和登记默认文档
           </label>
         </div>
         <div class="modal-actions">
@@ -880,7 +895,7 @@ const HTML = `<!DOCTYPE html>
     function hl(text, q) {
       if (!q) return esc(text);
       const safe = esc(text);
-      const sq = esc(q).replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
+      const sq = esc(q).replace(/[.*+?^\${}()|[\]\\]/g, '\\$&');
       return safe.replace(new RegExp('(' + sq + ')', 'gi'), '<span class="hl">$1</span>');
     }
 
@@ -963,8 +978,12 @@ const HTML = `<!DOCTYPE html>
         documents.forEach(d => {
           const opt = document.createElement('option');
           opt.value = d.id;
-          opt.textContent = d.name + (d.isDefault ? ' (默认)' : '');
-          if (d.isDefault) opt.selected = true;
+          const defaultLabel = selectId === 'queryDocSelect'
+            ? (d.queryDefault ? ' (查询默认)' : '')
+            : (d.writeDefault ? ' (登记默认)' : '');
+          opt.textContent = d.name + defaultLabel;
+          const isDefault = selectId === 'queryDocSelect' ? d.queryDefault : d.writeDefault;
+          if (isDefault) opt.selected = true;
           sel.appendChild(opt);
         });
 
@@ -994,7 +1013,7 @@ const HTML = `<!DOCTYPE html>
             currentConfig = data.data;
           }
         } catch (err) {
-          console.error('加载写入目标失败:', err);
+          console.error('加载登记目标失败:', err);
           return;
         }
       }
@@ -1004,7 +1023,7 @@ const HTML = `<!DOCTYPE html>
       const sel = $('writeTargetSelect');
       sel.innerHTML = '';
       if (targets.length === 0) {
-        sel.innerHTML = '<option value="">未配置写入目标</option>';
+        sel.innerHTML = '<option value="">未配置登记目标</option>';
       } else {
         targets.forEach(t => {
           const opt = document.createElement('option');
@@ -1150,7 +1169,7 @@ const HTML = `<!DOCTYPE html>
               '<td><span class="tag">' + esc(o.platform) + '</span></td>' +
               '<td>' + esc(o.logistics_name) + '</td>' +
               '<td>' + esc(formatTradeStatus(o.trade_status)) + '</td>' +
-              '<td>' + esc(o.receiver_area) + '</td>';
+              '<td>' + esc(o.goods_amount) + '</td>';
             body.appendChild(tr);
           });
         }
@@ -1267,22 +1286,22 @@ const HTML = `<!DOCTYPE html>
         const data = await resp.json();
 
         if (!data.success) {
-          showError(data.error || '写入失败', 'writeError');
-          showToast(data.error || '写入失败', 'error');
-          addLog('写入', '失败', data.error || '写入失败');
+          showError(data.error || '登记失败', 'writeError');
+          showToast(data.error || '登记失败', 'error');
+          addLog('登记', '失败', data.error || '登记失败');
           return;
         }
 
         showSuccess(data.message);
         showToast(data.message, 'success');
-        addLog('写入', '成功', '行: ' + writePreviewData.targetRow + '，' + data.message);
+        addLog('登记', '成功', '行: ' + writePreviewData.targetRow + '，' + data.message);
         $('previewPanel').style.display = 'none';
         $('writeDescription').value = '';
         writePreviewData = null;
       } catch (err) {
         showError('网络请求失败: ' + err.message, 'writeError');
         showToast('网络请求失败: ' + err.message, 'error');
-        addLog('写入', '失败', '网络错误: ' + err.message);
+        addLog('登记', '失败', '网络错误: ' + err.message);
       }
     }
 
@@ -1311,9 +1330,39 @@ const HTML = `<!DOCTYPE html>
         $('cfgCacheRefresh').value = (currentConfig.cache.autoRefreshInterval || 1800000) / 1000;
 
         renderDocList();
+        renderDefaultDocSelectors();
       } catch (err) {
         console.error('加载设置失败:', err);
       }
+    }
+
+    function renderDefaultDocSelectors() {
+      const docs = currentConfig.documents || [];
+      const querySel = $('cfgQueryDefaultDoc');
+      const writeSel = $('cfgWriteDefaultDoc');
+      querySel.innerHTML = '<option value="">-- 请选择 --</option>';
+      writeSel.innerHTML = '<option value="">-- 请选择 --</option>';
+      docs.forEach(doc => {
+        const optQ = document.createElement('option');
+        optQ.value = doc.id;
+        optQ.textContent = doc.name;
+        optQ.selected = doc.id === currentConfig.queryDefaultDocumentId;
+        querySel.appendChild(optQ);
+
+        const optW = document.createElement('option');
+        optW.value = doc.id;
+        optW.textContent = doc.name;
+        optW.selected = doc.id === currentConfig.writeDefaultDocumentId;
+        writeSel.appendChild(optW);
+      });
+    }
+
+    function onQueryDefaultDocChange() {
+      currentConfig.queryDefaultDocumentId = $('cfgQueryDefaultDoc').value;
+    }
+
+    function onWriteDefaultDocChange() {
+      currentConfig.writeDefaultDocumentId = $('cfgWriteDefaultDoc').value;
     }
 
     function renderDocList() {
@@ -1328,9 +1377,13 @@ const HTML = `<!DOCTYPE html>
       currentConfig.documents.forEach((doc, idx) => {
         const item = document.createElement('div');
         item.className = 'doc-list-item';
-        const isDefault = doc.id === currentConfig.defaultDocumentId;
+        const isQueryDefault = doc.id === currentConfig.queryDefaultDocumentId;
+        const isWriteDefault = doc.id === currentConfig.writeDefaultDocumentId;
+        const tags = [];
+        if (isQueryDefault) tags.push('<span class="tag">查询默认</span>');
+        if (isWriteDefault) tags.push('<span class="tag">登记默认</span>');
         item.innerHTML =
-          '<span class="name">' + esc(doc.name) + ' ' + (isDefault ? '<span class="tag">默认</span>' : '') + '</span>' +
+          '<span class="name">' + esc(doc.name) + (tags.length ? ' ' + tags.join(' ') : '') + '</span>' +
           '<div class="actions">' +
             '<button class="btn btn-secondary btn-icon" onclick="editDocument(' + idx + ')">编辑</button>' +
             '<button class="btn btn-secondary btn-icon" onclick="deleteDocument(' + idx + ')">删除</button>' +
@@ -1348,7 +1401,7 @@ const HTML = `<!DOCTYPE html>
       $('modalDocFileId').value = '';
       $('modalDocKeywords').value = '客退,退货';
       $('modalDocTargets').value = '';
-      $('modalDocDefault').checked = !currentConfig.defaultDocumentId;
+      $('modalDocDefault').checked = false;
       $('docModal').classList.add('visible');
       $('modalDocName').focus();
     }
@@ -1360,8 +1413,8 @@ const HTML = `<!DOCTYPE html>
       $('modalDocName').value = doc.name || '';
       $('modalDocFileId').value = doc.fileId || '';
       $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');
-      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\\n');
-      $('modalDocDefault').checked = (doc.id === currentConfig.defaultDocumentId);
+      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\n');
+      $('modalDocDefault').checked = (doc.id === currentConfig.queryDefaultDocumentId || doc.id === currentConfig.writeDefaultDocumentId);
       $('docModal').classList.add('visible');
     }
 
@@ -1379,7 +1432,7 @@ const HTML = `<!DOCTYPE html>
       if (!name) { showToast('请输入文档名称', 'error'); return; }
       if (!fileId) { showToast('请输入 File ID', 'error'); return; }
 
-      const writeTargets = targetsStr ? targetsStr.split('\\n').filter(s => s.trim()).map((s, i) => {
+      const writeTargets = targetsStr ? targetsStr.split('\n').filter(s => s.trim()).map((s, i) => {
         const parts = s.split('|').map(p => p.trim());
         return {
           id: 'target' + i,
@@ -1401,14 +1454,16 @@ const HTML = `<!DOCTYPE html>
       } else {
         docData.id = 'doc' + Date.now();
         currentConfig.documents.push(docData);
-        if (!currentConfig.defaultDocumentId) {
-          currentConfig.defaultDocumentId = docData.id;
+        if (!currentConfig.queryDefaultDocumentId && !currentConfig.writeDefaultDocumentId) {
+          currentConfig.queryDefaultDocumentId = docData.id;
+          currentConfig.writeDefaultDocumentId = docData.id;
         }
       }
 
       if (isDefault) {
         const docId = docModalEditIdx >= 0 ? currentConfig.documents[docModalEditIdx].id : docData.id;
-        currentConfig.defaultDocumentId = docId;
+        currentConfig.queryDefaultDocumentId = docId;
+        currentConfig.writeDefaultDocumentId = docId;
       }
 
       closeDocModal();
@@ -1424,8 +1479,11 @@ const HTML = `<!DOCTYPE html>
       $('deleteConfirmBtn').onclick = function() {
         const docId = currentConfig.documents[deleteTargetIdx].id;
         currentConfig.documents.splice(deleteTargetIdx, 1);
-        if (currentConfig.defaultDocumentId === docId) {
-          currentConfig.defaultDocumentId = currentConfig.documents[0] ? currentConfig.documents[0].id : '';
+        if (currentConfig.queryDefaultDocumentId === docId) {
+          currentConfig.queryDefaultDocumentId = currentConfig.documents[0] ? currentConfig.documents[0].id : '';
+        }
+        if (currentConfig.writeDefaultDocumentId === docId) {
+          currentConfig.writeDefaultDocumentId = currentConfig.documents[0] ? currentConfig.documents[0].id : '';
         }
         closeDeleteModal();
         renderDocList();
@@ -1482,7 +1540,8 @@ const HTML = `<!DOCTYPE html>
     async function saveSettings() {
       const config = {
         documents: currentConfig.documents,
-        defaultDocumentId: currentConfig.defaultDocumentId,
+        queryDefaultDocumentId: currentConfig.queryDefaultDocumentId,
+        writeDefaultDocumentId: currentConfig.writeDefaultDocumentId,
         tencentDocs: {
           apiKey: $('cfgTencentKey').value,
           mcpUrl: $('cfgTencentUrl').value
@@ -1521,7 +1580,8 @@ const HTML = `<!DOCTYPE html>
     loadDocSelector('queryDocSelect');
   </script>
 </body>
-</html>`;
+</html>
+`;
 
 // --- MD5 Implementation (pure JS, for Wangdian API signing) ---
 function md5(str) {
@@ -1558,7 +1618,7 @@ function md5(str) {
   return rh(a)+rh(b)+rh(c)+rh(d);
 }
 
-const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"defaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
+const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"queryDefaultDocumentId":"doc_demo","writeDefaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
 
 // 全局常量
 const MAX_DESCRIPTION_LENGTH = 5000; // LLM 提取描述的最大字符数
@@ -2200,6 +2260,12 @@ async function loadConfig(env) {
     const stored = await env.CONFIG.get('config');
     if (stored) cfg = deepMerge(DEFAULT_CONFIG, JSON.parse(stored));
     else cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+
+    // 向后兼容：旧版 defaultDocumentId 拆分为查询/写入默认文档
+    if (cfg.defaultDocumentId && !cfg.queryDefaultDocumentId && !cfg.writeDefaultDocumentId) {
+      cfg.queryDefaultDocumentId = cfg.defaultDocumentId;
+      cfg.writeDefaultDocumentId = cfg.defaultDocumentId;
+    }
   } catch (e) {
     console.error('[config] 加载配置失败:', e.message);
     cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
@@ -2280,7 +2346,9 @@ export default {
       try {
         const newConfig = JSON.parse(JSON.stringify(config));
         if (body.documents) newConfig.documents = body.documents;
-        if (body.defaultDocumentId) newConfig.defaultDocumentId = body.defaultDocumentId;
+        newConfig.queryDefaultDocumentId = body.queryDefaultDocumentId || config.queryDefaultDocumentId;
+        newConfig.writeDefaultDocumentId = body.writeDefaultDocumentId || config.writeDefaultDocumentId;
+        if ('defaultDocumentId' in newConfig) delete newConfig.defaultDocumentId;
         if (body.cache) newConfig.cache = body.cache;
         if (body.tencentDocs) {
           newConfig.tencentDocs = {
@@ -2307,7 +2375,8 @@ export default {
     if (url.pathname === '/api/documents' && request.method === 'GET') {
       const docs = config.documents.map(d => ({
         id: d.id, name: d.name,
-        isDefault: d.id === config.defaultDocumentId,
+        queryDefault: d.id === config.queryDefaultDocumentId,
+        writeDefault: d.id === config.writeDefaultDocumentId,
         writeTargetCount: (d.writeTargets || []).length
       }));
       return jsonResponse({ success: true, data: docs });
@@ -2316,7 +2385,7 @@ export default {
     // GET /api/search
     if (url.pathname === '/api/search' && request.method === 'GET') {
       const query = url.searchParams.get('q') || '';
-      const docId = url.searchParams.get('docId') || config.defaultDocumentId;
+      const docId = url.searchParams.get('docId') || config.queryDefaultDocumentId;
       const doc = getDocumentById(config, docId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       try {
@@ -2339,7 +2408,7 @@ export default {
 
     // GET /api/refresh
     if (url.pathname === '/api/refresh' && request.method === 'GET') {
-      const docId = url.searchParams.get('docId') || config.defaultDocumentId;
+      const docId = url.searchParams.get('docId') || config.queryDefaultDocumentId;
       const doc = getDocumentById(config, docId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       try {
@@ -2373,9 +2442,9 @@ export default {
 
     // GET /api/write/headers
     if (url.pathname === '/api/write/headers' && request.method === 'GET') {
-      const docId = url.searchParams.get('docId') || config.defaultDocumentId;
+      const docId = url.searchParams.get('docId') || config.writeDefaultDocumentId;
       const targetId = url.searchParams.get('targetId');
-      const doc = getDocumentById(config, docId);
+      const doc = getDocumentById(config, docId || config.writeDefaultDocumentId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       const target = (doc.writeTargets || []).find(t => t.id === targetId);
       if (!target) return jsonResponse({ success: false, error: '未找到指定的写入目标表格' }, 400);
@@ -2401,10 +2470,10 @@ export default {
     // POST /api/write/extract
     if (url.pathname === '/api/write/extract' && request.method === 'POST') {
       const body = await request.json();
-      const docId = body.docId || config.defaultDocumentId;
+      const docId = body.docId || config.writeDefaultDocumentId;
       const targetId = body.targetId;
       const description = body.description;
-      const doc = getDocumentById(config, docId);
+      const doc = getDocumentById(config, docId || config.writeDefaultDocumentId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       const target = (doc.writeTargets || []).find(t => t.id === targetId);
       if (!target) return jsonResponse({ success: false, error: '未找到指定的写入目标表格' }, 400);
@@ -2454,7 +2523,7 @@ export default {
     // POST /api/write/execute
     if (url.pathname === '/api/write/execute' && request.method === 'POST') {
       const body = await request.json();
-      const docId = body.docId || config.defaultDocumentId;
+      const docId = body.docId || config.writeDefaultDocumentId;
       const targetFileId = body.targetFileId;
       const sheetId = body.sheetId;
       const targetRow = body.targetRow;

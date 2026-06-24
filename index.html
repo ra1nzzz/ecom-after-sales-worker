@@ -587,6 +587,7 @@
     <!-- Query View -->
     <section class="view active" id="view-query">
       <div class="card">
+        <h2 class="card-title">文档查询</h2>
         <div class="doc-selector">
           <label for="queryDocSelect" style="margin:0">文档：</label>
           <select id="queryDocSelect" onchange="onQueryDocChange()"></select>
@@ -597,7 +598,6 @@
             <input type="text" class="search-input" id="searchInput" placeholder="输入快递单号查询登记记录..." autocomplete="off" spellcheck="false"/>
           </div>
           <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">查询</button>
-          <button class="btn btn-secondary" id="wdtSearchBtn" onclick="doWdtSearch()">ERP反查</button>
         </div>
         <div class="search-meta">
           <span id="statusText">ready</span>
@@ -627,6 +627,26 @@
             <tbody id="resultBody"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">旺店通ERP查询</h2>
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <span class="search-prefix">&gt;</span>
+            <input type="text" class="search-input" id="wdtSearchInput" placeholder="输入物流单号或原始单号查询ERP订单..." autocomplete="off" spellcheck="false"/>
+          </div>
+          <button class="btn btn-primary" id="wdtSearchBtn" onclick="doWdtSearch()">ERP查询</button>
+        </div>
+        <div class="search-meta">
+          <span id="wdtStatusText">ready</span>
+        </div>
+      </div>
+
+      <div class="error-box" id="wdtErrorMsg"></div>
+      <div class="loading" id="wdtLoading">
+        <div class="spinner"></div>
+        <p>querying ERP...</p>
       </div>
 
       <div class="card" id="wdtResultPanel" style="display:none">
@@ -1068,27 +1088,32 @@
 
     const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
     function formatTradeStatus(s) { return TRADE_STATUS_MAP[s] || ('状态' + s); }
+    function setWdtStatus(t) { $('wdtStatusText').textContent = t; }
+
+    $('wdtSearchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doWdtSearch();
+    });
 
     async function doWdtSearch() {
-      const q = $('searchInput').value.trim();
-      if (!q) { showError('请输入物流单号或原始单号'); $('searchInput').focus(); return; }
+      const q = $('wdtSearchInput').value.trim();
+      if (!q) { showError('请输入物流单号或原始单号', 'wdtErrorMsg'); $('wdtSearchInput').focus(); return; }
 
       $('wdtResultPanel').style.display = 'none';
-      $('loading').classList.add('visible');
-      $('errorMsg').classList.remove('visible');
+      $('wdtLoading').classList.add('visible');
+      $('wdtErrorMsg').classList.remove('visible');
       $('wdtSearchBtn').disabled = true;
-      setStatus('querying ERP...');
+      setWdtStatus('querying ERP...');
 
       try {
         const resp = await fetch('/api/wdt/query?q=' + encodeURIComponent(q));
         const data = await resp.json();
-        $('loading').classList.remove('visible');
+        $('wdtLoading').classList.remove('visible');
 
         if (!data.success) {
-          showError(data.error || 'ERP查询失败');
+          showError(data.error || 'ERP查询失败', 'wdtErrorMsg');
           showToast(data.error || 'ERP查询失败', 'error');
-          addLog('ERP反查', '失败', data.error || '查询失败');
-          setStatus('error');
+          addLog('ERP查询', '失败', data.error || '查询失败');
+          setWdtStatus('error');
           return;
         }
 
@@ -1114,15 +1139,15 @@
         }
 
         $('wdtResultPanel').style.display = 'block';
-        setStatus('ERP — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
+        setWdtStatus('done — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
         showToast('ERP查询完成，共 ' + data.total + ' 条结果', 'success');
-        addLog('ERP反查', '成功', '查询: ' + q + '，共 ' + data.total + ' 条');
+        addLog('ERP查询', '成功', '查询: ' + q + '，共 ' + data.total + ' 条');
       } catch (err) {
-        $('loading').classList.remove('visible');
-        showError('网络请求失败');
+        $('wdtLoading').classList.remove('visible');
+        showError('网络请求失败', 'wdtErrorMsg');
         showToast('网络请求失败', 'error');
-        addLog('ERP反查', '失败', '网络错误');
-        setStatus('network error');
+        addLog('ERP查询', '失败', '网络错误');
+        setWdtStatus('network error');
       } finally {
         $('wdtSearchBtn').disabled = false;
       }

@@ -588,6 +588,7 @@ const HTML = `<!DOCTYPE html>
     <!-- Query View -->
     <section class="view active" id="view-query">
       <div class="card">
+        <h2 class="card-title">文档查询</h2>
         <div class="doc-selector">
           <label for="queryDocSelect" style="margin:0">文档：</label>
           <select id="queryDocSelect" onchange="onQueryDocChange()"></select>
@@ -598,7 +599,6 @@ const HTML = `<!DOCTYPE html>
             <input type="text" class="search-input" id="searchInput" placeholder="输入快递单号查询登记记录..." autocomplete="off" spellcheck="false"/>
           </div>
           <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">查询</button>
-          <button class="btn btn-secondary" id="wdtSearchBtn" onclick="doWdtSearch()">ERP反查</button>
         </div>
         <div class="search-meta">
           <span id="statusText">ready</span>
@@ -628,6 +628,26 @@ const HTML = `<!DOCTYPE html>
             <tbody id="resultBody"></tbody>
           </table>
         </div>
+      </div>
+
+      <div class="card">
+        <h2 class="card-title">旺店通ERP查询</h2>
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <span class="search-prefix">&gt;</span>
+            <input type="text" class="search-input" id="wdtSearchInput" placeholder="输入物流单号或原始单号查询ERP订单..." autocomplete="off" spellcheck="false"/>
+          </div>
+          <button class="btn btn-primary" id="wdtSearchBtn" onclick="doWdtSearch()">ERP查询</button>
+        </div>
+        <div class="search-meta">
+          <span id="wdtStatusText">ready</span>
+        </div>
+      </div>
+
+      <div class="error-box" id="wdtErrorMsg"></div>
+      <div class="loading" id="wdtLoading">
+        <div class="spinner"></div>
+        <p>querying ERP...</p>
       </div>
 
       <div class="card" id="wdtResultPanel" style="display:none">
@@ -845,6 +865,12 @@ const HTML = `<!DOCTYPE html>
     let currentConfig = null;
     let documents = [];
     let writePreviewData = null;
+    let _documentsLoaded = false;
+
+    function invalidateFrontendCache() {
+      _documentsLoaded = false;
+      currentConfig = null;
+    }
 
     function esc(s) {
       if (!s) return '';
@@ -923,23 +949,27 @@ const HTML = `<!DOCTYPE html>
 
     async function loadDocSelector(selectId) {
       try {
-        const resp = await fetch('/api/documents');
-        const data = await resp.json();
-        if (data.success) {
-          documents = data.data;
-          const sel = $(selectId);
-          sel.innerHTML = '';
-          documents.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.id;
-            opt.textContent = d.name + (d.isDefault ? ' (默认)' : '');
-            if (d.isDefault) opt.selected = true;
-            sel.appendChild(opt);
-          });
-
-          if (selectId === 'writeDocSelect') {
-            onWriteDocChange();
+        // 仅首次加载或缓存失效时才请求 /api/documents
+        if (!_documentsLoaded) {
+          const resp = await fetch('/api/documents');
+          const data = await resp.json();
+          if (data.success) {
+            documents = data.data;
+            _documentsLoaded = true;
           }
+        }
+        const sel = $(selectId);
+        sel.innerHTML = '';
+        documents.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.id;
+          opt.textContent = d.name + (d.isDefault ? ' (默认)' : '');
+          if (d.isDefault) opt.selected = true;
+          sel.appendChild(opt);
+        });
+
+        if (selectId === 'writeDocSelect') {
+          onWriteDocChange();
         }
       } catch (err) {
         console.error('加载文档列表失败:', err);
@@ -955,27 +985,33 @@ const HTML = `<!DOCTYPE html>
       const doc = documents.find(d => d.id === docId);
       if (!doc) return;
 
-      try {
-        const resp = await fetch('/api/config');
-        const data = await resp.json();
-        if (data.success) {
-          const docConfig = data.data.documents.find(d => d.id === docId);
-          const targets = (docConfig && docConfig.writeTargets) || [];
-          const sel = $('writeTargetSelect');
-          sel.innerHTML = '';
-          if (targets.length === 0) {
-            sel.innerHTML = '<option value="">未配置写入目标</option>';
-          } else {
-            targets.forEach(t => {
-              const opt = document.createElement('option');
-              opt.value = t.id;
-              opt.textContent = t.name;
-              sel.appendChild(opt);
-            });
+      // 优先使用已缓存的 currentConfig，避免重复请求 /api/config
+      if (!currentConfig) {
+        try {
+          const resp = await fetch('/api/config');
+          const data = await resp.json();
+          if (data.success) {
+            currentConfig = data.data;
           }
+        } catch (err) {
+          console.error('加载写入目标失败:', err);
+          return;
         }
-      } catch (err) {
-        console.error('加载写入目标失败:', err);
+      }
+
+      const docConfig = currentConfig.documents.find(d => d.id === docId);
+      const targets = (docConfig && docConfig.writeTargets) || [];
+      const sel = $('writeTargetSelect');
+      sel.innerHTML = '';
+      if (targets.length === 0) {
+        sel.innerHTML = '<option value="">未配置写入目标</option>';
+      } else {
+        targets.forEach(t => {
+          const opt = document.createElement('option');
+          opt.value = t.id;
+          opt.textContent = t.name;
+          sel.appendChild(opt);
+        });
       }
     }
 
@@ -1069,27 +1105,32 @@ const HTML = `<!DOCTYPE html>
 
     const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
     function formatTradeStatus(s) { return TRADE_STATUS_MAP[s] || ('状态' + s); }
+    function setWdtStatus(t) { $('wdtStatusText').textContent = t; }
+
+    $('wdtSearchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doWdtSearch();
+    });
 
     async function doWdtSearch() {
-      const q = $('searchInput').value.trim();
-      if (!q) { showError('请输入物流单号或原始单号'); $('searchInput').focus(); return; }
+      const q = $('wdtSearchInput').value.trim();
+      if (!q) { showError('请输入物流单号或原始单号', 'wdtErrorMsg'); $('wdtSearchInput').focus(); return; }
 
       $('wdtResultPanel').style.display = 'none';
-      $('loading').classList.add('visible');
-      $('errorMsg').classList.remove('visible');
+      $('wdtLoading').classList.add('visible');
+      $('wdtErrorMsg').classList.remove('visible');
       $('wdtSearchBtn').disabled = true;
-      setStatus('querying ERP...');
+      setWdtStatus('querying ERP...');
 
       try {
         const resp = await fetch('/api/wdt/query?q=' + encodeURIComponent(q));
         const data = await resp.json();
-        $('loading').classList.remove('visible');
+        $('wdtLoading').classList.remove('visible');
 
         if (!data.success) {
-          showError(data.error || 'ERP查询失败');
+          showError(data.error || 'ERP查询失败', 'wdtErrorMsg');
           showToast(data.error || 'ERP查询失败', 'error');
-          addLog('ERP反查', '失败', data.error || '查询失败');
-          setStatus('error');
+          addLog('ERP查询', '失败', data.error || '查询失败');
+          setWdtStatus('error');
           return;
         }
 
@@ -1115,15 +1156,15 @@ const HTML = `<!DOCTYPE html>
         }
 
         $('wdtResultPanel').style.display = 'block';
-        setStatus('ERP — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
+        setWdtStatus('done — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
         showToast('ERP查询完成，共 ' + data.total + ' 条结果', 'success');
-        addLog('ERP反查', '成功', '查询: ' + q + '，共 ' + data.total + ' 条');
+        addLog('ERP查询', '成功', '查询: ' + q + '，共 ' + data.total + ' 条');
       } catch (err) {
-        $('loading').classList.remove('visible');
-        showError('网络请求失败');
+        $('wdtLoading').classList.remove('visible');
+        showError('网络请求失败', 'wdtErrorMsg');
         showToast('网络请求失败', 'error');
-        addLog('ERP反查', '失败', '网络错误');
-        setStatus('network error');
+        addLog('ERP查询', '失败', '网络错误');
+        setWdtStatus('network error');
       } finally {
         $('wdtSearchBtn').disabled = false;
       }
@@ -1467,6 +1508,7 @@ const HTML = `<!DOCTYPE html>
         const data = await resp.json();
         if (data.success) {
           showToast('配置已保存');
+          invalidateFrontendCache();
           loadSettings();
         } else {
           showToast('保存失败: ' + (data.error || ''), 'error');
@@ -1516,7 +1558,20 @@ function md5(str) {
   return rh(a)+rh(b)+rh(c)+rh(d);
 }
 
-const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"defaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"e307046ff3f64c099f678442a95bb8a5","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
+const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"defaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
+
+// 全局常量
+const MAX_DESCRIPTION_LENGTH = 5000; // LLM 提取描述的最大字符数
+const HEADER_SAMPLE_ROW_LIMIT = 50; // 读取表头采样时的最大行数
+const MAX_COL_COUNT = 10; // 读取单元格数据时限制的最大列数
+
+// --- Shared Constants (mirror of local/src/constants.js, keep in sync) ---
+const PLATFORMS = ['京东','淘宝','天猫','拼多多','抖音','快手','小红书','微信','有赞','微店','苏宁','唯品会','当当','1688','阿里'];
+const FIELD_ALIASES = {'单号':'快递单号','金额':'货值(元)','价格':'货值(元)','日期':'登记日期','数量':'正品数量','理赔':'理赔类型','运费':'运费(元)','货值':'货值(元)'};
+const CLAIM_TYPES = ['丢件','破损','少件','漏发','错发','退件','拒收','地址错误','超区','无人收件'];
+const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
+const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform'};
+const LOGISTICS_NO_REGEX = /^[A-Za-z0-9]{8,}$/;
 
 // --- MCP Client (Workers fetch) ---
 async function callMcpApi(mcpUrl, apiKey, method, params, sessionId) {
@@ -1528,6 +1583,10 @@ async function callMcpApi(mcpUrl, apiKey, method, params, sessionId) {
     body: JSON.stringify({ jsonrpc: '2.0', id: Date.now().toString(), method: method, params: params })
   });
   const newSid = resp.headers.get('mcp-session-id') || sessionId;
+  if (!resp.ok) {
+    const errText = await resp.text();
+    throw new Error('MCP API 返回错误状态码 ' + resp.status + ': ' + errText.substring(0, 200));
+  }
   const data = await resp.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
   return { result: data.result, sessionId: newSid };
@@ -1575,7 +1634,7 @@ async function getSheetList(mcpUrl, apiKey, sessionId, fileId) {
   try {
     const parsed = JSON.parse(text);
     if (parsed.sheets) return parsed.sheets;
-  } catch (e) {}
+  } catch (e) { /* 响应非JSON格式，返回空数组 */ }
   return [];
 }
 
@@ -1583,7 +1642,7 @@ async function readSheetCsv(mcpUrl, apiKey, sessionId, fileId, sheetId, rowCount
   const result = await callToolWithSession(mcpUrl, apiKey, sessionId, 'sheet.get_cell_data', {
     file_id: fileId, sheet_id: sheetId,
     start_row: 0, end_row: rowCount,
-    start_col: 0, end_col: Math.min(colCount, 10),
+    start_col: 0, end_col: Math.min(colCount, MAX_COL_COUNT),
     return_csv: true
   });
   return extractText(result);
@@ -1644,13 +1703,23 @@ async function fetchData(docConfig, tencentDocsConfig) {
   const sid = await initMcpSession(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey);
   const sheets = await getSheetList(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sid, docConfig.fileId);
   const keywords = docConfig.readSheetKeywords || ['客退', '退货'];
+  const dataSheets = sheets.filter(sheet => keywords.some(kw => sheet.sheet_name.includes(kw)));
+
+  // 并行读取所有匹配的 sheet，提升多表文档的加载速度
+  const results = await Promise.allSettled(
+    dataSheets.map(sheet =>
+      readSheetCsv(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sid, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count)
+        .then(csv => parseSheetCsv(csv, sheet.sheet_name))
+    )
+  );
+
   const allRecords = [];
-  for (const sheet of sheets) {
-    if (!keywords.some(kw => sheet.sheet_name.includes(kw))) continue;
-    try {
-      const csv = await readSheetCsv(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sid, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count);
-      allRecords.push(...parseSheetCsv(csv, sheet.sheet_name));
-    } catch (err) {}
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status === 'fulfilled') {
+      allRecords.push(...results[i].value);
+    } else if (results[i].status === 'rejected') {
+      console.error('读取失败 [' + dataSheets[i].sheet_name + ']: ' + (results[i].reason && results[i].reason.message));
+    }
   }
   return allRecords;
 }
@@ -1735,10 +1804,9 @@ async function callWdtApi(credentials, method, bodyParams) {
 
 function parseShopInfo(fullShopName) {
   if (!fullShopName) return { platform: '', shopName: '' };
-  const platforms = ['京东', '淘宝', '天猫', '拼多多', '抖音', '快手', '小红书', '微信', '有赞', '微店', '苏宁', '唯品会', '当当', '1688', '阿里'];
   let platform = '';
   let shopName = fullShopName;
-  for (const p of platforms) {
+  for (const p of PLATFORMS) {
     if (fullShopName.startsWith(p) || fullShopName.includes(' ' + p) || fullShopName.includes(p + ' ')) {
       platform = p;
       break;
@@ -1800,6 +1868,43 @@ async function queryWdtOrder(credentials, query) {
   return { success: true, total: parsedOrders.length, orders: parsedOrders };
 }
 
+/**
+ * 从描述文本中自动匹配旺店通订单
+ * 遍历描述中的每个 token，提取可能的物流单号并查询旺店通，
+ * 返回第一个匹配到的订单对象（或 null）。
+ */
+async function autoMatchWdtOrder(credentials, description) {
+  const tokens = description.split(/\s+/);
+  for (const token of tokens) {
+    const cleaned = token.replace(/^[^\w]+/, '').replace(/[^\w]+$/, '');
+    if (LOGISTICS_NO_REGEX.test(cleaned) && /\d/.test(cleaned)) {
+      try {
+        const wdtResult = await queryWdtOrder(credentials, cleaned);
+        if (wdtResult.success && wdtResult.orders && wdtResult.orders.length > 0) {
+          return wdtResult.orders[0];
+        }
+      } catch (e) { /* 忽略旺店通查询错误 */ }
+    }
+  }
+  return null;
+}
+
+/**
+ * 将旺店通订单数据合并到提取结果中
+ * 仅填充当前为空的字段，不覆盖已有值。
+ */
+function mergeWdtData(headers, extractResult, wdtMatch) {
+  for (let i = 0; i < headers.length; i++) {
+    const h = headers[i];
+    const wdtProp = WDT_FIELD_MAP[h];
+    if (wdtProp && wdtMatch[wdtProp] && (!extractResult.values[i] || !extractResult.values[i].trim())) {
+      extractResult.values[i] = wdtMatch[wdtProp];
+    }
+  }
+  extractResult.nonEmptyCount = extractResult.values.filter(v => v && v.trim()).length;
+  extractResult.missing = headers.filter((h, i) => !extractResult.values[i] || !extractResult.values[i].trim());
+}
+
 // --- LLM Client (Workers fetch) ---
 async function chatJSON(llmConfig, systemPrompt, userMessage) {
   if (!llmConfig.apiKey && llmConfig.provider !== 'ollama') {
@@ -1825,7 +1930,10 @@ async function chatJSON(llmConfig, systemPrompt, userMessage) {
   try { return JSON.parse(content); }
   catch (e) {
     const match = content.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]);
+    if (match) {
+      try { return JSON.parse(match[0]); }
+      catch (e2) { throw new Error('LLM 输出无法解析为 JSON: ' + content.substring(0, 200)); }
+    }
     throw new Error('LLM 输出无法解析为 JSON: ' + content.substring(0, 200));
   }
 }
@@ -1921,14 +2029,10 @@ function ruleBasedExtract(headers, description) {
   // 按长度降序排列（包括去后缀的版本）
   const sortedHeaders = Object.keys(headerMap).sort((a, b) => b.length - a.length);
 
-  const aliases = {
-    '单号': '快递单号', '金额': '货值(元)', '价格': '货值(元)',
-    '日期': '登记日期', '数量': '正品数量',
-    '理赔': '理赔类型', '运费': '运费(元)', '货值': '货值(元)'
-  };
+  const aliases = FIELD_ALIASES;
 
   // 理赔类型关键词
-  const claimTypes = ['丢件', '破损', '少件', '漏发', '错发', '退件', '拒收', '地址错误', '超区', '无人收件'];
+  const claimTypes = CLAIM_TYPES;
 
   const tokens = description.split(/\s+/).filter(t => t.length > 0);
   let currentHeader = null;
@@ -2043,14 +2147,19 @@ async function extractRowData(llmConfig, headers, tableName, userDescription) {
     raw = ruleBasedExtract(headers, userDescription);
     method = 'rule';
   } else {
-    // LLM返回结果后，用rule-based补充空字段
-    const ruleResult = ruleBasedExtract(headers, userDescription);
-    for (const h of headers) {
-      if ((!raw[h] || String(raw[h]).trim() === '') && ruleResult[h] && String(ruleResult[h]).trim()) {
-        raw[h] = ruleResult[h];
+    // LLM返回结果后，仅当存在空字段时才用rule-based补充，避免不必要的计算
+    const hasEmpty = headers.some(h => !raw[h] || String(raw[h]).trim() === '');
+    if (hasEmpty) {
+      const ruleResult = ruleBasedExtract(headers, userDescription);
+      for (const h of headers) {
+        if ((!raw[h] || String(raw[h]).trim() === '') && ruleResult[h] && String(ruleResult[h]).trim()) {
+          raw[h] = ruleResult[h];
+        }
       }
+      method = 'llm+rule';
+    } else {
+      method = 'llm';
     }
-    method = 'llm+rule';
   }
   const values = headers.map(h => {
     const v = raw[h];
@@ -2073,14 +2182,27 @@ function buildPreviewText(headers, values) {
 }
 
 // --- Config ---
+function deepMerge(target, source) {
+  const result = { ...target };
+  for (const key of Object.keys(source)) {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(target[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  }
+  return result;
+}
+
 async function loadConfig(env) {
   let cfg;
   try {
     const stored = await env.CONFIG.get('config');
-    if (stored) cfg = JSON.parse(stored);
-    else cfg = DEFAULT_CONFIG;
+    if (stored) cfg = deepMerge(DEFAULT_CONFIG, JSON.parse(stored));
+    else cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   } catch (e) {
-    cfg = DEFAULT_CONFIG;
+    console.error('[config] 加载配置失败:', e.message);
+    cfg = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
   }
   if (!cfg.wangdian) cfg.wangdian = { sid: '', key: '', secret: '', salt: '' };
   if (env.WDT_SID) cfg.wangdian.sid = env.WDT_SID;
@@ -2099,6 +2221,11 @@ function getDocumentById(config, docId) {
 }
 
 // --- HTTP Helpers ---
+function maskApiKey(key) {
+  if (!key) return key;
+  return key.substring(0, 4) + '****' + key.substring(key.length - 4);
+}
+
 function jsonResponse(data, status) {
   return new Response(JSON.stringify(data), {
     status: status || 200,
@@ -2114,6 +2241,7 @@ function jsonResponse(data, status) {
 // --- Route Handler ---
 export default {
   async fetch(request, env) {
+    try {
     if (request.method === 'OPTIONS') {
       return new Response(null, {
         status: 204,
@@ -2130,7 +2258,7 @@ export default {
     try {
       config = await loadConfig(env);
     } catch (e) {
-      config = DEFAULT_CONFIG;
+      config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
     }
 
     // Static HTML
@@ -2141,14 +2269,8 @@ export default {
     // GET /api/config
     if (url.pathname === '/api/config' && request.method === 'GET') {
       const safeConfig = JSON.parse(JSON.stringify(config));
-      if (safeConfig.tencentDocs && safeConfig.tencentDocs.apiKey) {
-        const k = safeConfig.tencentDocs.apiKey;
-        safeConfig.tencentDocs.apiKey = k.substring(0, 4) + '****' + k.substring(k.length - 4);
-      }
-      if (safeConfig.llm && safeConfig.llm.apiKey) {
-        const k = safeConfig.llm.apiKey;
-        safeConfig.llm.apiKey = k.substring(0, 4) + '****' + k.substring(k.length - 4);
-      }
+      if (safeConfig.tencentDocs) safeConfig.tencentDocs.apiKey = maskApiKey(safeConfig.tencentDocs.apiKey);
+      if (safeConfig.llm) safeConfig.llm.apiKey = maskApiKey(safeConfig.llm.apiKey);
       return jsonResponse({ success: true, data: safeConfig });
     }
 
@@ -2263,7 +2385,7 @@ export default {
         const sheets = await getSheetList(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId);
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
-        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, 50), sheet.col_count);
+        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
         const lines = csv.split('\n').filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
@@ -2287,56 +2409,29 @@ export default {
       const target = (doc.writeTargets || []).find(t => t.id === targetId);
       if (!target) return jsonResponse({ success: false, error: '未找到指定的写入目标表格' }, 400);
       if (!description || !description.trim()) return jsonResponse({ success: false, error: '请输入描述内容' }, 400);
+      if (description.length > MAX_DESCRIPTION_LENGTH) return jsonResponse({ success: false, error: '描述内容过长，最大支持 ' + MAX_DESCRIPTION_LENGTH + ' 个字符' }, 400);
       try {
         const targetFileId = target.fileId || doc.fileId;
         const sid = await initMcpSession(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey);
         const sheets = await getSheetList(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId);
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
-        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, 50), sheet.col_count);
+        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
         const lines = csv.split('\n').filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
-        const extractResult = await extractRowData(config.llm, headers, target.name, description);
-
-        // 旺店通自动匹配：从描述中提取物流单号，查询ERP获取订单信息
-        let wdtMatch = null;
+        // 并行执行：LLM 提取 + 旺店通自动匹配（两者互不依赖）
         const wdtCfg = config.wangdian || {};
-        if (wdtCfg.sid && wdtCfg.key && wdtCfg.secret && wdtCfg.salt) {
-          const tokens = description.split(/\s+/);
-          for (const token of tokens) {
-            const cleaned = token.replace(/^[^\w]+/, '').replace(/[^\w]+$/, '');
-            if (/^[A-Za-z0-9]{8,}$/.test(cleaned) && /\d/.test(cleaned)) {
-              try {
-                const wdtResult = await queryWdtOrder(wdtCfg, cleaned);
-                if (wdtResult.success && wdtResult.orders && wdtResult.orders.length > 0) {
-                  wdtMatch = wdtResult.orders[0];
-                  break;
-                }
-              } catch (e) { /* 忽略旺店通查询错误 */ }
-            }
-          }
-        }
+        const wdtEnabled = wdtCfg.sid && wdtCfg.key && wdtCfg.secret && wdtCfg.salt;
+
+        const [extractResult, wdtMatch] = await Promise.all([
+          extractRowData(config.llm, headers, target.name, description),
+          wdtEnabled ? autoMatchWdtOrder(wdtCfg, description) : Promise.resolve(null)
+        ]);
 
         // 合并旺店通数据到提取结果
         if (wdtMatch) {
-          const wdtFields = {
-            '订单号': wdtMatch.src_tids,
-            '原始单号': wdtMatch.src_tids,
-            '快递单号': wdtMatch.logistics_no,
-            '物流单号': wdtMatch.logistics_no,
-            '店铺名称': wdtMatch.parsedShopName,
-            '店铺': wdtMatch.parsedShopName,
-            '平台': wdtMatch.platform
-          };
-          for (let i = 0; i < headers.length; i++) {
-            const h = headers[i];
-            if (wdtFields[h] && (!extractResult.values[i] || !extractResult.values[i].trim())) {
-              extractResult.values[i] = wdtFields[h];
-            }
-          }
-          extractResult.nonEmptyCount = extractResult.values.filter(v => v && v.trim()).length;
-          extractResult.missing = headers.filter((h, i) => !extractResult.values[i] || !extractResult.values[i].trim());
+          mergeWdtData(headers, extractResult, wdtMatch);
         }
 
         if (extractResult.nonEmptyCount === 0) {
@@ -2367,6 +2462,7 @@ export default {
       const doc = getDocumentById(config, docId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       if (!values || !Array.isArray(values)) return jsonResponse({ success: false, error: '写入数据无效' }, 400);
+      if (!Number.isInteger(targetRow) || targetRow < 0) return jsonResponse({ success: false, error: '目标行号无效' }, 400);
       const nonEmptyCount = values.filter(v => v && String(v).trim()).length;
       if (nonEmptyCount === 0) return jsonResponse({ success: false, error: '写入数据全为空，已阻止写入' }, 400);
       const writeDocId = targetFileId || doc.fileId;
@@ -2403,5 +2499,8 @@ export default {
     }
 
     return new Response('Not Found', { status: 404 });
+    } catch (err) {
+      return jsonResponse({ success: false, error: '服务器内部错误: ' + err.message }, 500);
+    }
   }
 };

@@ -1,5 +1,1522 @@
-const HTML = "<!DOCTYPE html>\n<html lang=\"zh-CN\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>综合电商售后处理系统</title>\n  <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n  <link href=\"https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap\" rel=\"stylesheet\">\n  <style>\n    :root {\n      --bg-primary: #0A0F1A;\n      --bg-secondary: #111827;\n      --bg-card: #151C2C;\n      --bg-hover: #1A2332;\n      --text-primary: #E2E8F0;\n      --text-secondary: #8892B0;\n      --text-muted: #4A5568;\n      --accent: #00D4AA;\n      --accent-dim: rgba(0, 212, 170, 0.1);\n      --accent-glow: rgba(0, 212, 170, 0.25);\n      --border: #1E293B;\n      --border-accent: rgba(0, 212, 170, 0.3);\n      --danger: #F87171;\n      --danger-bg: rgba(248, 113, 113, 0.08);\n      --warning-bg: rgba(251, 191, 36, 0.12);\n      --warning-text: #FBBF24;\n      --font-display: 'Space Grotesk', system-ui, sans-serif;\n      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;\n      --radius: 8px;\n    }\n\n    * { margin: 0; padding: 0; box-sizing: border-box; }\n\n    body {\n      font-family: var(--font-display);\n      background: var(--bg-primary);\n      color: var(--text-primary);\n      min-height: 100vh;\n      -webkit-font-smoothing: antialiased;\n    }\n\n    .app {\n      max-width: 1120px;\n      margin: 0 auto;\n      padding: 48px 24px 80px;\n    }\n\n    .header { margin-bottom: 32px; }\n\n    .header-top {\n      display: flex;\n      align-items: center;\n      gap: 12px;\n      margin-bottom: 8px;\n    }\n\n    .header-tag {\n      font-family: var(--font-mono);\n      font-size: 11px;\n      font-weight: 500;\n      color: var(--accent);\n      background: var(--accent-dim);\n      border: 1px solid var(--border-accent);\n      padding: 3px 10px;\n      border-radius: 4px;\n      letter-spacing: 0.5px;\n      text-transform: uppercase;\n    }\n\n    .header h1 {\n      font-size: clamp(24px, 4vw, 36px);\n      font-weight: 700;\n      letter-spacing: -0.5px;\n      line-height: 1.2;\n    }\n\n    .header-sub {\n      font-size: 15px;\n      color: var(--text-secondary);\n      margin-top: 6px;\n    }\n\n    .tabs {\n      display: flex;\n      gap: 4px;\n      margin-bottom: 24px;\n      border-bottom: 1px solid var(--border);\n      padding-bottom: 0;\n    }\n\n    .tab {\n      padding: 10px 20px;\n      background: transparent;\n      border: none;\n      border-bottom: 2px solid transparent;\n      color: var(--text-secondary);\n      font-family: var(--font-display);\n      font-size: 14px;\n      font-weight: 500;\n      cursor: pointer;\n      transition: color 0.2s, border-color 0.2s;\n      margin-bottom: -1px;\n    }\n\n    .tab:hover { color: var(--text-primary); }\n    .tab.active {\n      color: var(--accent);\n      border-bottom-color: var(--accent);\n    }\n\n    .view { display: none; }\n    .view.active { display: block; }\n\n    .card {\n      background: var(--bg-card);\n      border: 1px solid var(--border);\n      border-radius: var(--radius);\n      padding: 28px;\n      margin-bottom: 20px;\n    }\n\n    .card-title {\n      font-size: 15px;\n      font-weight: 600;\n      margin-bottom: 16px;\n    }\n\n    .form-group { margin-bottom: 16px; }\n\n    label {\n      display: block;\n      font-size: 13px;\n      color: var(--text-secondary);\n      margin-bottom: 6px;\n      font-weight: 500;\n    }\n\n    input[type=\"text\"],\n    input[type=\"password\"],\n    input[type=\"url\"],\n    select,\n    textarea {\n      width: 100%;\n      padding: 10px 14px;\n      background: var(--bg-primary);\n      border: 1px solid var(--border);\n      border-radius: 6px;\n      font-family: var(--font-display);\n      font-size: 14px;\n      color: var(--text-primary);\n      outline: none;\n      transition: border-color 0.2s, box-shadow 0.2s;\n    }\n\n    input:focus, select:focus, textarea:focus {\n      border-color: var(--accent);\n      box-shadow: 0 0 0 3px var(--accent-glow);\n    }\n\n    select {\n      cursor: pointer;\n      appearance: none;\n      background-image: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238892B0' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E\");\n      background-repeat: no-repeat;\n      background-position: right 12px center;\n      padding-right: 36px;\n    }\n\n    textarea {\n      min-height: 80px;\n      resize: vertical;\n      font-family: var(--font-mono);\n    }\n\n    .btn {\n      padding: 10px 24px;\n      border: none;\n      border-radius: 6px;\n      font-family: var(--font-display);\n      font-size: 14px;\n      font-weight: 600;\n      cursor: pointer;\n      transition: opacity 0.15s, transform 0.1s;\n      white-space: nowrap;\n    }\n\n    .btn-primary {\n      background: var(--accent);\n      color: var(--bg-primary);\n    }\n\n    .btn-secondary {\n      background: var(--bg-hover);\n      color: var(--text-primary);\n      border: 1px solid var(--border);\n    }\n\n    .btn-danger {\n      background: var(--danger);\n      color: #fff;\n    }\n\n    .btn:hover { opacity: 0.88; }\n    .btn:active { transform: scale(0.97); }\n    .btn:disabled { opacity: 0.4; cursor: not-allowed; }\n\n    .btn-row {\n      display: flex;\n      gap: 10px;\n      align-items: center;\n    }\n\n    .search-row {\n      display: flex;\n      gap: 10px;\n      align-items: stretch;\n    }\n\n    .search-input-wrap {\n      flex: 1;\n      position: relative;\n    }\n\n    .search-prefix {\n      position: absolute;\n      left: 14px;\n      top: 50%;\n      transform: translateY(-50%);\n      font-family: var(--font-mono);\n      font-size: 13px;\n      color: var(--text-muted);\n      pointer-events: none;\n    }\n\n    .search-input {\n      width: 100%;\n      padding: 13px 16px 13px 36px;\n      font-family: var(--font-mono);\n      font-size: 15px;\n    }\n\n    .doc-selector {\n      display: flex;\n      align-items: center;\n      gap: 10px;\n      margin-bottom: 14px;\n    }\n\n    .doc-selector select {\n      width: 240px;\n    }\n\n    .search-meta {\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n      margin-top: 14px;\n      font-size: 12px;\n      color: var(--text-muted);\n      font-family: var(--font-mono);\n    }\n\n    .btn-refresh {\n      background: transparent;\n      border: 1px solid var(--border);\n      border-radius: 4px;\n      padding: 4px 12px;\n      font-family: var(--font-mono);\n      font-size: 11px;\n      color: var(--text-secondary);\n      cursor: pointer;\n      transition: all 0.2s;\n    }\n\n    .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }\n\n    .error-box {\n      display: none;\n      background: var(--danger-bg);\n      border: 1px solid rgba(248, 113, 113, 0.2);\n      border-radius: 6px;\n      padding: 14px 20px;\n      color: var(--danger);\n      font-size: 14px;\n      margin-bottom: 20px;\n    }\n    .error-box.visible { display: block; }\n\n    .success-box {\n      display: none;\n      background: var(--accent-dim);\n      border: 1px solid var(--border-accent);\n      border-radius: 6px;\n      padding: 14px 20px;\n      color: var(--accent);\n      font-size: 14px;\n      margin-bottom: 20px;\n    }\n    .success-box.visible { display: block; }\n\n    .loading { display: none; text-align: center; padding: 48px 20px; }\n    .loading.visible { display: block; }\n\n    .spinner {\n      display: inline-block;\n      width: 28px;\n      height: 28px;\n      border: 2px solid var(--border);\n      border-top-color: var(--accent);\n      border-radius: 50%;\n      animation: spin 0.7s linear infinite;\n    }\n\n    @keyframes spin { to { transform: rotate(360deg); } }\n\n    .loading p {\n      margin-top: 14px;\n      color: var(--text-secondary);\n      font-size: 13px;\n      font-family: var(--font-mono);\n    }\n\n    .table-scroll { overflow-x: auto; }\n\n    table {\n      width: 100%;\n      border-collapse: collapse;\n    }\n\n    thead th {\n      padding: 11px 20px;\n      text-align: left;\n      font-family: var(--font-mono);\n      font-size: 11px;\n      font-weight: 500;\n      color: var(--text-muted);\n      text-transform: uppercase;\n      letter-spacing: 0.8px;\n      border-bottom: 1px solid var(--border);\n      white-space: nowrap;\n      background: var(--bg-secondary);\n    }\n\n    tbody td {\n      padding: 12px 20px;\n      font-size: 14px;\n      color: var(--text-secondary);\n      border-bottom: 1px solid var(--border);\n      white-space: nowrap;\n    }\n\n    tbody tr { transition: background 0.12s; }\n    tbody tr:hover { background: var(--bg-hover); }\n    tbody tr:last-child td { border-bottom: none; }\n\n    .tag {\n      display: inline-block;\n      font-family: var(--font-mono);\n      font-size: 11px;\n      font-weight: 500;\n      padding: 2px 8px;\n      border-radius: 4px;\n      background: var(--accent-dim);\n      color: var(--accent);\n      border: 1px solid var(--border-accent);\n    }\n\n    .hl {\n      background: var(--warning-bg);\n      color: var(--warning-text);\n      padding: 1px 4px;\n      border-radius: 3px;\n      font-weight: 600;\n    }\n\n    .preview-table {\n      width: 100%;\n      border-collapse: collapse;\n    }\n\n    .preview-table th {\n      padding: 8px 14px;\n      font-size: 12px;\n      color: var(--text-muted);\n      border-bottom: 1px solid var(--border);\n      text-align: left;\n    }\n\n    .preview-table td {\n      padding: 10px 14px;\n      font-size: 14px;\n      color: var(--text-primary);\n      border-bottom: 1px solid var(--border);\n    }\n\n    .preview-table .empty-cell {\n      color: var(--danger);\n      font-style: italic;\n    }\n\n    .missing-fields {\n      background: var(--warning-bg);\n      border: 1px solid rgba(251, 191, 36, 0.2);\n      border-radius: 6px;\n      padding: 12px 16px;\n      color: var(--warning-text);\n      font-size: 13px;\n      margin-bottom: 16px;\n    }\n\n    .settings-section {\n      margin-bottom: 28px;\n    }\n\n    .settings-section h3 {\n      font-size: 14px;\n      color: var(--accent);\n      margin-bottom: 14px;\n      padding-bottom: 8px;\n      border-bottom: 1px solid var(--border);\n    }\n\n    .doc-list-item {\n      display: flex;\n      align-items: center;\n      gap: 10px;\n      padding: 12px 14px;\n      background: var(--bg-primary);\n      border: 1px solid var(--border);\n      border-radius: 6px;\n      margin-bottom: 8px;\n    }\n\n    .doc-list-item .name {\n      flex: 1;\n      font-weight: 500;\n    }\n\n    .doc-list-item .actions {\n      display: flex;\n      gap: 6px;\n    }\n\n    .btn-icon {\n      padding: 4px 10px;\n      font-size: 12px;\n    }\n\n    .form-row {\n      display: flex;\n      gap: 14px;\n    }\n\n    .form-row .form-group {\n      flex: 1;\n    }\n\n    .hint {\n      font-size: 12px;\n      color: var(--text-muted);\n      margin-top: 4px;\n    }\n\n    /* ── Modal ── */\n    .modal-overlay {\n      display: none;\n      position: fixed;\n      top: 0; left: 0; right: 0; bottom: 0;\n      background: rgba(0,0,0,0.6);\n      z-index: 1000;\n      justify-content: center;\n      align-items: center;\n    }\n    .modal-overlay.visible { display: flex; }\n\n    .modal {\n      background: var(--bg-card);\n      border: 1px solid var(--border);\n      border-radius: var(--radius);\n      padding: 28px;\n      max-width: 520px;\n      width: 90%;\n      max-height: 85vh;\n      overflow-y: auto;\n    }\n\n    .modal-title {\n      font-size: 16px;\n      font-weight: 600;\n      margin-bottom: 20px;\n    }\n\n    .modal-actions {\n      display: flex;\n      gap: 10px;\n      justify-content: flex-end;\n      margin-top: 20px;\n    }\n\n    /* ── Toast ── */\n    .toast {\n      display: none;\n      position: fixed;\n      top: 24px;\n      right: 24px;\n      z-index: 2000;\n      padding: 14px 20px;\n      border-radius: 6px;\n      font-size: 14px;\n      max-width: 400px;\n      box-shadow: 0 4px 12px rgba(0,0,0,0.3);\n    }\n    .toast.visible { display: block; }\n    .toast.success {\n      background: var(--accent-dim);\n      border: 1px solid var(--border-accent);\n      color: var(--accent);\n    }\n    .toast.error {\n      background: var(--danger-bg);\n      border: 1px solid rgba(248, 113, 113, 0.2);\n      color: var(--danger);\n    }\n\n    @media (max-width: 640px) {\n      .app { padding: 24px 12px 48px; }\n      .card { padding: 18px; }\n      .search-row { flex-direction: column; }\n      .form-row { flex-direction: column; }\n      .doc-selector select { width: 100%; }\n    }\n  </style>\n</head>\n<body>\n  <div class=\"app\">\n    <header class=\"header\">\n      <div class=\"header-top\">\n        <span class=\"header-tag\">v2.0</span>\n      </div>\n      <h1>综合电商售后处理系统</h1>\n      <p class=\"header-sub\">查询 · 写入 · 设置 — 数据来源：<code>腾讯文档</code></p>\n    </header>\n\n    <nav class=\"tabs\">\n      <button class=\"tab active\" data-view=\"query\" onclick=\"switchView('query')\">查询</button>\n      <button class=\"tab\" data-view=\"write\" onclick=\"switchView('write')\">写入</button>\n      <button class=\"tab\" data-view=\"settings\" onclick=\"switchView('settings')\">设置</button>\n    </nav>\n\n    <!-- Query View -->\n    <section class=\"view active\" id=\"view-query\">\n      <div class=\"card\">\n        <div class=\"doc-selector\">\n          <label for=\"queryDocSelect\" style=\"margin:0\">文档：</label>\n          <select id=\"queryDocSelect\" onchange=\"onQueryDocChange()\"></select>\n        </div>\n        <div class=\"search-row\">\n          <div class=\"search-input-wrap\">\n            <span class=\"search-prefix\">&gt;</span>\n            <input type=\"text\" class=\"search-input\" id=\"searchInput\" placeholder=\"输入快递单号...\" autocomplete=\"off\" spellcheck=\"false\"/>\n          </div>\n          <button class=\"btn btn-primary\" id=\"searchBtn\" onclick=\"doSearch()\">查询</button>\n        </div>\n        <div class=\"search-meta\">\n          <span id=\"statusText\">ready</span>\n          <button class=\"btn-refresh\" onclick=\"doRefresh()\">刷新数据</button>\n        </div>\n      </div>\n\n      <div class=\"error-box\" id=\"errorMsg\"></div>\n      <div class=\"loading\" id=\"loading\">\n        <div class=\"spinner\"></div>\n        <p>fetching data...</p>\n      </div>\n\n      <div class=\"card\" id=\"resultPanel\" style=\"display:none\">\n        <div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:16px\">\n          <h2 class=\"card-title\" style=\"margin:0\">查询结果</h2>\n          <span style=\"font-family:var(--font-mono);font-size:13px;color:var(--text-secondary)\">共 <em id=\"totalCount\" style=\"font-style:normal;color:var(--accent);font-weight:600\">0</em> 条</span>\n        </div>\n        <div class=\"table-scroll\">\n          <table>\n            <thead>\n              <tr>\n                <th>来源</th><th>登记日期</th><th>快递单号</th><th>商品名称</th>\n                <th>正品</th><th>次品</th><th>次品备注</th><th>备注</th>\n              </tr>\n            </thead>\n            <tbody id=\"resultBody\"></tbody>\n          </table>\n        </div>\n      </div>\n    </section>\n\n    <!-- Write View -->\n    <section class=\"view\" id=\"view-write\">\n      <div class=\"card\">\n        <h2 class=\"card-title\">写入新记录</h2>\n        <div class=\"form-row\">\n          <div class=\"form-group\">\n            <label>选择文档</label>\n            <select id=\"writeDocSelect\" onchange=\"onWriteDocChange()\"></select>\n          </div>\n          <div class=\"form-group\">\n            <label>选择目标表格</label>\n            <select id=\"writeTargetSelect\"></select>\n          </div>\n        </div>\n        <div class=\"form-group\">\n          <label>用自然语言描述要写入的内容</label>\n          <textarea id=\"writeDescription\" placeholder=\"例如：华强北数码3C店 淘宝 订单号123456789 快递单号SF1234567890 丢件登记理赔货值399元 运费20元\"></textarea>\n        </div>\n        <div class=\"btn-row\">\n          <button class=\"btn btn-primary\" id=\"extractBtn\" onclick=\"doExtract()\">提取并预览</button>\n        </div>\n      </div>\n\n      <div class=\"error-box\" id=\"writeError\"></div>\n      <div class=\"success-box\" id=\"writeSuccess\"></div>\n      <div class=\"loading\" id=\"writeLoading\">\n        <div class=\"spinner\"></div>\n        <p>LLM 正在分析...</p>\n      </div>\n\n      <div class=\"card\" id=\"previewPanel\" style=\"display:none\">\n        <h2 class=\"card-title\">写入预览</h2>\n        <div id=\"missingFields\" class=\"missing-fields\" style=\"display:none\"></div>\n        <div class=\"table-scroll\">\n          <table class=\"preview-table\">\n            <thead><tr id=\"previewHeader\"></tr></thead>\n            <tbody><tr id=\"previewRow\"></tr></tbody>\n          </table>\n        </div>\n        <div style=\"margin-top:16px;display:flex;gap:10px\">\n          <button class=\"btn btn-primary\" onclick=\"doWrite()\">确认写入</button>\n          <button class=\"btn btn-secondary\" onclick=\"cancelWrite()\">取消</button>\n        </div>\n      </div>\n    </section>\n\n    <!-- Settings View -->\n    <section class=\"view\" id=\"view-settings\">\n      <div class=\"card\">\n        <h2 class=\"card-title\">系统设置</h2>\n\n        <div class=\"settings-section\">\n          <h3>腾讯文档配置</h3>\n          <div class=\"form-group\">\n            <label>API Key</label>\n            <input type=\"password\" id=\"cfgTencentKey\" placeholder=\"腾讯文档 API Key\"/>\n          </div>\n          <div class=\"form-group\">\n            <label>MCP API 地址</label>\n            <input type=\"url\" id=\"cfgTencentUrl\" placeholder=\"https://docs.qq.com/openapi/mcp\"/>\n          </div>\n        </div>\n\n        <div class=\"settings-section\">\n          <h3>LLM 配置</h3>\n          <div class=\"form-row\">\n            <div class=\"form-group\">\n              <label>服务商</label>\n              <select id=\"cfgLlmProvider\" onchange=\"onLlmProviderChange()\">\n                <option value=\"deepseek\">DeepSeek</option>\n                <option value=\"doubao\">豆包 (火山引擎)</option>\n                <option value=\"qwen\">通义千问</option>\n                <option value=\"ollama\">Ollama (本地)</option>\n                <option value=\"openai\">OpenAI</option>\n              </select>\n            </div>\n            <div class=\"form-group\">\n              <label>模型名称</label>\n              <input type=\"text\" id=\"cfgLlmModel\" placeholder=\"deepseek-chat\"/>\n            </div>\n          </div>\n          <div class=\"form-group\">\n            <label>API Key</label>\n            <input type=\"password\" id=\"cfgLlmKey\" placeholder=\"LLM API Key\"/>\n          </div>\n          <div class=\"form-group\">\n            <label>Base URL</label>\n            <input type=\"url\" id=\"cfgLlmUrl\" placeholder=\"https://api.deepseek.com\"/>\n          </div>\n          <div class=\"btn-row\" style=\"margin-top:8px\">\n            <button class=\"btn btn-secondary\" onclick=\"testLLM()\">测试连接</button>\n          </div>\n        </div>\n\n        <div class=\"settings-section\">\n          <h3>文档配置</h3>\n          <div id=\"docListContainer\"></div>\n          <button class=\"btn btn-secondary\" onclick=\"addDocument()\" style=\"margin-top:8px\">+ 添加文档</button>\n        </div>\n\n        <div class=\"settings-section\">\n          <h3>缓存配置</h3>\n          <div class=\"form-row\">\n            <div class=\"form-group\">\n              <label>缓存有效期（秒）</label>\n              <input type=\"text\" id=\"cfgCacheTtl\" placeholder=\"300\"/>\n            </div>\n            <div class=\"form-group\">\n              <label>自动刷新间隔（秒）</label>\n              <input type=\"text\" id=\"cfgCacheRefresh\" placeholder=\"1800\"/>\n            </div>\n          </div>\n        </div>\n\n        <div class=\"btn-row\">\n          <button class=\"btn btn-primary\" onclick=\"saveSettings()\">保存配置</button>\n        </div>\n      </div>\n    </section>\n\n    <!-- Document Edit Modal -->\n    <div class=\"modal-overlay\" id=\"docModal\">\n      <div class=\"modal\">\n        <h2 class=\"modal-title\" id=\"docModalTitle\">添加文档</h2>\n        <div class=\"form-group\">\n          <label>文档名称</label>\n          <input type=\"text\" id=\"modalDocName\" placeholder=\"如：和旭电商退货登记\"/>\n        </div>\n        <div class=\"form-group\">\n          <label>腾讯文档 File ID</label>\n          <input type=\"text\" id=\"modalDocFileId\" placeholder=\"文档 ID\"/>\n        </div>\n        <div class=\"form-group\">\n          <label>读取 Sheet 关键词（逗号分隔）</label>\n          <input type=\"text\" id=\"modalDocKeywords\" placeholder=\"客退,退货\"/>\n        </div>\n        <div class=\"form-group\">\n          <label>写入目标（每行一个，格式：显示名|sheet名）</label>\n          <textarea id=\"modalDocTargets\" placeholder=\"快递理赔登记表|理赔登记&#10;售后换货登记表|换货登记\" style=\"min-height:60px\"></textarea>\n        </div>\n        <div class=\"form-group\">\n          <label>\n            <input type=\"checkbox\" id=\"modalDocDefault\" style=\"width:auto;display:inline;margin-right:6px\"/>\n            设为默认文档\n          </label>\n        </div>\n        <div class=\"modal-actions\">\n          <button class=\"btn btn-secondary\" onclick=\"closeDocModal()\">取消</button>\n          <button class=\"btn btn-primary\" id=\"docModalSave\" onclick=\"saveDocModal()\">保存</button>\n        </div>\n      </div>\n    </div>\n\n    <!-- Delete Confirm Modal -->\n    <div class=\"modal-overlay\" id=\"deleteModal\">\n      <div class=\"modal\" style=\"max-width:400px\">\n        <h2 class=\"modal-title\">确认删除</h2>\n        <p id=\"deleteModalText\" style=\"color:var(--text-secondary);font-size:14px;line-height:1.6\"></p>\n        <div class=\"modal-actions\">\n          <button class=\"btn btn-secondary\" onclick=\"closeDeleteModal()\">取消</button>\n          <button class=\"btn btn-danger\" id=\"deleteConfirmBtn\">删除</button>\n        </div>\n      </div>\n    </div>\n\n    <!-- Toast -->\n    <div class=\"toast\" id=\"toast\"></div>\n  </div>\n\n  <script>\n    const $ = id => document.getElementById(id);\n\n    let currentConfig = null;\n    let documents = [];\n    let writePreviewData = null;\n\n    function esc(s) {\n      if (!s) return '';\n      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n    }\n\n    function hl(text, q) {\n      if (!q) return esc(text);\n      const safe = esc(text);\n      const sq = esc(q).replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\__HTML_CONTENT__');\n      return safe.replace(new RegExp('(' + sq + ')', 'gi'), '<span class=\"hl\">$1</span>');\n    }\n\n    function showError(msg, container) {\n      const el = container || $('errorMsg');\n      el.textContent = msg;\n      el.classList.add('visible');\n      setTimeout(() => el.classList.remove('visible'), 8000);\n    }\n\n    function showSuccess(msg) {\n      const el = $('writeSuccess');\n      el.textContent = msg;\n      el.classList.add('visible');\n      setTimeout(() => el.classList.remove('visible'), 8000);\n    }\n\n    function setStatus(t) { $('statusText').textContent = t; }\n\n    function showToast(msg, type) {\n      const el = $('toast');\n      el.textContent = msg;\n      el.className = 'toast ' + (type || 'success') + ' visible';\n      setTimeout(() => el.classList.remove('visible'), 5000);\n    }\n\n    function switchView(viewName) {\n      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));\n      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));\n      document.querySelector('.tab[data-view=\"' + viewName + '\"]').classList.add('active');\n      $('view-' + viewName).classList.add('active');\n\n      if (viewName === 'settings') loadSettings();\n      if (viewName === 'query') loadDocSelector('queryDocSelect');\n      if (viewName === 'write') loadDocSelector('writeDocSelect');\n    }\n\n    async function loadDocSelector(selectId) {\n      try {\n        const resp = await fetch('/api/documents');\n        const data = await resp.json();\n        if (data.success) {\n          documents = data.data;\n          const sel = $(selectId);\n          sel.innerHTML = '';\n          documents.forEach(d => {\n            const opt = document.createElement('option');\n            opt.value = d.id;\n            opt.textContent = d.name + (d.isDefault ? ' (默认)' : '');\n            if (d.isDefault) opt.selected = true;\n            sel.appendChild(opt);\n          });\n\n          if (selectId === 'writeDocSelect') {\n            onWriteDocChange();\n          }\n        }\n      } catch (err) {\n        console.error('加载文档列表失败:', err);\n      }\n    }\n\n    function onQueryDocChange() {\n      setStatus('ready');\n    }\n\n    async function onWriteDocChange() {\n      const docId = $('writeDocSelect').value;\n      const doc = documents.find(d => d.id === docId);\n      if (!doc) return;\n\n      try {\n        const resp = await fetch('/api/config');\n        const data = await resp.json();\n        if (data.success) {\n          const docConfig = data.data.documents.find(d => d.id === docId);\n          const targets = (docConfig && docConfig.writeTargets) || [];\n          const sel = $('writeTargetSelect');\n          sel.innerHTML = '';\n          if (targets.length === 0) {\n            sel.innerHTML = '<option value=\"\">未配置写入目标</option>';\n          } else {\n            targets.forEach(t => {\n              const opt = document.createElement('option');\n              opt.value = t.id;\n              opt.textContent = t.name;\n              sel.appendChild(opt);\n            });\n          }\n        }\n      } catch (err) {\n        console.error('加载写入目标失败:', err);\n      }\n    }\n\n    $('searchInput').addEventListener('keydown', e => {\n      if (e.key === 'Enter') doSearch();\n    });\n\n    async function doSearch() {\n      const q = $('searchInput').value.trim();\n      if (!q) { showError('请输入快递单号'); $('searchInput').focus(); return; }\n\n      const docId = $('queryDocSelect').value;\n      $('resultPanel').style.display = 'none';\n      $('loading').classList.add('visible');\n      $('errorMsg').classList.remove('visible');\n      $('searchBtn').disabled = true;\n      setStatus('querying...');\n\n      try {\n        const resp = await fetch('/api/search?q=' + encodeURIComponent(q) + '&docId=' + encodeURIComponent(docId));\n        const data = await resp.json();\n        $('loading').classList.remove('visible');\n\n        if (!data.success) {\n          showError(data.error || '查询失败');\n          setStatus('error');\n          return;\n        }\n\n        $('totalCount').textContent = data.total;\n        const body = $('resultBody');\n        body.innerHTML = '';\n\n        if (data.total === 0) {\n          body.innerHTML = '<tr><td colspan=\"8\" style=\"text-align:center;padding:40px;color:var(--text-muted)\">未找到匹配记录</td></tr>';\n        } else {\n          data.data.forEach(r => {\n            const tr = document.createElement('tr');\n            tr.innerHTML =\n              '<td><span class=\"tag\">' + esc(r.source) + '</span></td>' +\n              '<td>' + esc(r['登记日期']) + '</td>' +\n              '<td style=\"color:var(--text-primary);font-family:var(--font-mono);font-size:13px\">' + hl(r['快递单号'], q) + '</td>' +\n              '<td>' + esc(r['商品名称']) + '</td>' +\n              '<td>' + esc(r['正品数量']) + '</td>' +\n              '<td>' + esc(r['次品数量']) + '</td>' +\n              '<td>' + esc(r['次品备注']) + '</td>' +\n              '<td>' + esc(r['备注']) + '</td>';\n            body.appendChild(tr);\n          });\n        }\n\n        $('resultPanel').style.display = 'block';\n        setStatus('done — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));\n      } catch (err) {\n        $('loading').classList.remove('visible');\n        showError('网络请求失败');\n        setStatus('network error');\n      } finally {\n        $('searchBtn').disabled = false;\n      }\n    }\n\n    async function doRefresh() {\n      const docId = $('queryDocSelect').value;\n      setStatus('refreshing...');\n      try {\n        const resp = await fetch('/api/refresh?docId=' + encodeURIComponent(docId));\n        const data = await resp.json();\n        if (data.success) {\n          setStatus('synced — ' + data.total + ' records');\n        } else {\n          showError('刷新失败: ' + (data.error || ''));\n          setStatus('error');\n        }\n      } catch {\n        setStatus('network error');\n      }\n    }\n\n    async function doExtract() {\n      const docId = $('writeDocSelect').value;\n      const targetId = $('writeTargetSelect').value;\n      const description = $('writeDescription').value.trim();\n\n      if (!targetId) { showError('请选择目标表格', 'writeError'); return; }\n      if (!description) { showError('请输入描述内容', 'writeError'); return; }\n\n      $('previewPanel').style.display = 'none';\n      $('writeLoading').classList.add('visible');\n      $('writeError').classList.remove('visible');\n      $('writeSuccess').classList.remove('visible');\n      $('extractBtn').disabled = true;\n\n      try {\n        const resp = await fetch('/api/write/extract', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ docId, targetId, description })\n        });\n        const data = await resp.json();\n        $('writeLoading').classList.remove('visible');\n\n        if (!data.success) {\n          showError(data.error || '提取失败', 'writeError');\n          return;\n        }\n\n        writePreviewData = data.data;\n\n        const headers = data.data.headers;\n        const values = data.data.values;\n\n        $('previewHeader').innerHTML = headers.map(h => '<th>' + esc(h) + '</th>').join('');\n        $('previewRow').innerHTML = values.map(v => {\n          if (!v || !v.trim()) return '<td class=\"empty-cell\">(空)</td>';\n          return '<td>' + esc(v) + '</td>';\n        }).join('');\n\n        if (data.data.missing && data.data.missing.length > 0) {\n          const el = $('missingFields');\n          el.style.display = 'block';\n          el.textContent = '⚠ 以下字段未填写，建议补充: ' + data.data.missing.join(', ');\n        } else {\n          $('missingFields').style.display = 'none';\n        }\n\n        $('previewPanel').style.display = 'block';\n      } catch (err) {\n        $('writeLoading').classList.remove('visible');\n        showError('网络请求失败: ' + err.message, 'writeError');\n      } finally {\n        $('extractBtn').disabled = false;\n      }\n    }\n\n    async function doWrite() {\n      if (!writePreviewData) return;\n\n      const docId = $('writeDocSelect').value;\n\n      try {\n        const resp = await fetch('/api/write/execute', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({\n            docId,\n            targetFileId: writePreviewData.targetFileId,\n            sheetId: writePreviewData.sheetId,\n            targetRow: writePreviewData.targetRow,\n            values: writePreviewData.values\n          })\n        });\n        const data = await resp.json();\n\n        if (!data.success) {\n          showError(data.error || '写入失败', 'writeError');\n          return;\n        }\n\n        showSuccess(data.message);\n        $('previewPanel').style.display = 'none';\n        $('writeDescription').value = '';\n        writePreviewData = null;\n      } catch (err) {\n        showError('网络请求失败: ' + err.message, 'writeError');\n      }\n    }\n\n    function cancelWrite() {\n      $('previewPanel').style.display = 'none';\n      writePreviewData = null;\n    }\n\n    async function loadSettings() {\n      try {\n        const resp = await fetch('/api/config');\n        const data = await resp.json();\n        if (!data.success) return;\n\n        currentConfig = data.data;\n\n        $('cfgTencentKey').value = currentConfig.tencentDocs.apiKey || '';\n        $('cfgTencentUrl').value = currentConfig.tencentDocs.mcpUrl || '';\n\n        $('cfgLlmProvider').value = currentConfig.llm.provider || 'deepseek';\n        $('cfgLlmModel').value = currentConfig.llm.model || '';\n        $('cfgLlmKey').value = currentConfig.llm.apiKey || '';\n        $('cfgLlmUrl').value = currentConfig.llm.baseUrl || '';\n\n        $('cfgCacheTtl').value = (currentConfig.cache.ttl || 300000) / 1000;\n        $('cfgCacheRefresh').value = (currentConfig.cache.autoRefreshInterval || 1800000) / 1000;\n\n        renderDocList();\n      } catch (err) {\n        console.error('加载设置失败:', err);\n      }\n    }\n\n    function renderDocList() {\n      const container = $('docListContainer');\n      container.innerHTML = '';\n\n      if (!currentConfig.documents || currentConfig.documents.length === 0) {\n        container.innerHTML = '<p style=\"color:var(--text-muted);font-size:13px\">暂无文档配置</p>';\n        return;\n      }\n\n      currentConfig.documents.forEach((doc, idx) => {\n        const item = document.createElement('div');\n        item.className = 'doc-list-item';\n        const isDefault = doc.id === currentConfig.defaultDocumentId;\n        item.innerHTML =\n          '<span class=\"name\">' + esc(doc.name) + ' ' + (isDefault ? '<span class=\"tag\">默认</span>' : '') + '</span>' +\n          '<div class=\"actions\">' +\n            '<button class=\"btn btn-secondary btn-icon\" onclick=\"editDocument(' + idx + ')\">编辑</button>' +\n            '<button class=\"btn btn-secondary btn-icon\" onclick=\"deleteDocument(' + idx + ')\">删除</button>' +\n          '</div>';\n        container.appendChild(item);\n      });\n    }\n\n    let docModalEditIdx = -1;\n\n    function addDocument() {\n      docModalEditIdx = -1;\n      $('docModalTitle').textContent = '添加文档';\n      $('modalDocName').value = '';\n      $('modalDocFileId').value = '';\n      $('modalDocKeywords').value = '客退,退货';\n      $('modalDocTargets').value = '';\n      $('modalDocDefault').checked = !currentConfig.defaultDocumentId;\n      $('docModal').classList.add('visible');\n      $('modalDocName').focus();\n    }\n\n    function editDocument(idx) {\n      const doc = currentConfig.documents[idx];\n      docModalEditIdx = idx;\n      $('docModalTitle').textContent = '编辑文档';\n      $('modalDocName').value = doc.name || '';\n      $('modalDocFileId').value = doc.fileId || '';\n      $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');\n      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\\n');\n      $('modalDocDefault').checked = (doc.id === currentConfig.defaultDocumentId);\n      $('docModal').classList.add('visible');\n    }\n\n    function closeDocModal() {\n      $('docModal').classList.remove('visible');\n    }\n\n    function saveDocModal() {\n      const name = $('modalDocName').value.trim();\n      const fileId = $('modalDocFileId').value.trim();\n      const keywords = $('modalDocKeywords').value.trim();\n      const targetsStr = $('modalDocTargets').value.trim();\n      const isDefault = $('modalDocDefault').checked;\n\n      if (!name) { showToast('请输入文档名称', 'error'); return; }\n      if (!fileId) { showToast('请输入 File ID', 'error'); return; }\n\n      const writeTargets = targetsStr ? targetsStr.split('\\n').filter(s => s.trim()).map((s, i) => {\n        const parts = s.split('|').map(p => p.trim());\n        return {\n          id: 'target' + i,\n          name: parts[0] || parts[1] || '',\n          sheetName: parts[1] || parts[0] || ''\n        };\n      }) : [];\n\n      const docData = {\n        name: name,\n        fileId: fileId,\n        readSheetKeywords: keywords ? keywords.split(',').map(s => s.trim()).filter(Boolean) : ['客退', '退货'],\n        writeTargets: writeTargets\n      };\n\n      if (docModalEditIdx >= 0) {\n        const doc = currentConfig.documents[docModalEditIdx];\n        Object.assign(doc, docData);\n      } else {\n        docData.id = 'doc' + Date.now();\n        currentConfig.documents.push(docData);\n        if (!currentConfig.defaultDocumentId) {\n          currentConfig.defaultDocumentId = docData.id;\n        }\n      }\n\n      if (isDefault) {\n        const docId = docModalEditIdx >= 0 ? currentConfig.documents[docModalEditIdx].id : docData.id;\n        currentConfig.defaultDocumentId = docId;\n      }\n\n      closeDocModal();\n      renderDocList();\n      showToast('文档已保存，点击下方\"保存配置\"生效');\n    }\n\n    let deleteTargetIdx = -1;\n\n    function deleteDocument(idx) {\n      deleteTargetIdx = idx;\n      $('deleteModalText').textContent = '确认删除文档\"' + currentConfig.documents[idx].name + '\"？此操作需点击下方\"保存配置\"才会真正生效。';\n      $('deleteConfirmBtn').onclick = function() {\n        const docId = currentConfig.documents[deleteTargetIdx].id;\n        currentConfig.documents.splice(deleteTargetIdx, 1);\n        if (currentConfig.defaultDocumentId === docId) {\n          currentConfig.defaultDocumentId = currentConfig.documents[0] ? currentConfig.documents[0].id : '';\n        }\n        closeDeleteModal();\n        renderDocList();\n        showToast('文档已删除，点击下方\"保存配置\"生效');\n      };\n      $('deleteModal').classList.add('visible');\n    }\n\n    function closeDeleteModal() {\n      $('deleteModal').classList.remove('visible');\n    }\n\n    function onLlmProviderChange() {\n      const provider = $('cfgLlmProvider').value;\n      const presets = {\n        deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-chat' },\n        doubao: { url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-1-5-pro-32k' },\n        qwen: { url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },\n        ollama: { url: 'http://localhost:11434/v1', model: 'qwen2.5:7b' },\n        openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' }\n      };\n      const preset = presets[provider];\n      if (preset) {\n        $('cfgLlmUrl').value = preset.url;\n        $('cfgLlmModel').value = preset.model;\n      }\n    }\n\n    async function testLLM() {\n      const llmConfig = {\n        provider: $('cfgLlmProvider').value,\n        apiKey: $('cfgLlmKey').value.includes('****') ? (currentConfig.llm.apiKey || '') : $('cfgLlmKey').value,\n        baseUrl: $('cfgLlmUrl').value,\n        model: $('cfgLlmModel').value\n      };\n\n      try {\n        const resp = await fetch('/api/llm/test', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ llmConfig })\n        });\n        const data = await resp.json();\n        if (data.success) {\n          showToast('✓ ' + data.message, 'success');\n        } else {\n          showToast('✗ ' + data.message, 'error');\n        }\n      } catch (err) {\n        showToast('✗ 请求失败: ' + err.message, 'error');\n      }\n    }\n\n    async function saveSettings() {\n      const config = {\n        documents: currentConfig.documents,\n        defaultDocumentId: currentConfig.defaultDocumentId,\n        tencentDocs: {\n          apiKey: $('cfgTencentKey').value,\n          mcpUrl: $('cfgTencentUrl').value\n        },\n        llm: {\n          provider: $('cfgLlmProvider').value,\n          apiKey: $('cfgLlmKey').value,\n          baseUrl: $('cfgLlmUrl').value,\n          model: $('cfgLlmModel').value\n        },\n        cache: {\n          ttl: parseInt($('cfgCacheTtl').value) * 1000 || 300000,\n          autoRefreshInterval: parseInt($('cfgCacheRefresh').value) * 1000 || 1800000\n        }\n      };\n\n      try {\n        const resp = await fetch('/api/config', {\n          method: 'PUT',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify(config)\n        });\n        const data = await resp.json();\n        if (data.success) {\n          showToast('配置已保存');\n          loadSettings();\n        } else {\n          showToast('保存失败: ' + (data.error || ''), 'error');\n        }\n      } catch (err) {\n        showToast('保存失败: ' + err.message, 'error');\n      }\n    }\n\n    loadDocSelector('queryDocSelect');\n  </script>\n</body>\n</html>\n";
-const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"defaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"e307046ff3f64c099f678442a95bb8a5","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
+// --- HTML (embedded as template literal) ---
+const HTML = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>和旭电商售后小工具</title>
+  <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0A0F1A;
+      --bg-secondary: #111827;
+      --bg-card: #151C2C;
+      --bg-hover: #1A2332;
+      --text-primary: #E2E8F0;
+      --text-secondary: #8892B0;
+      --text-muted: #4A5568;
+      --accent: #00D4AA;
+      --accent-dim: rgba(0, 212, 170, 0.1);
+      --accent-glow: rgba(0, 212, 170, 0.25);
+      --border: #1E293B;
+      --border-accent: rgba(0, 212, 170, 0.3);
+      --danger: #F87171;
+      --danger-bg: rgba(248, 113, 113, 0.08);
+      --warning-bg: rgba(251, 191, 36, 0.12);
+      --warning-text: #FBBF24;
+      --font-display: 'Space Grotesk', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+      --radius: 8px;
+    }
+
+    [data-theme="light"] {
+      --bg-primary: #F8FAFC;
+      --bg-secondary: #F1F5F9;
+      --bg-card: #FFFFFF;
+      --bg-hover: #F1F5F9;
+      --text-primary: #1E293B;
+      --text-secondary: #64748B;
+      --text-muted: #94A3B8;
+      --accent: #00A884;
+      --accent-dim: rgba(0,168,132,0.1);
+      --accent-glow: rgba(0,168,132,0.18);
+      --border: #E2E8F0;
+      --border-accent: rgba(0,168,132,0.35);
+      --danger: #DC2626;
+      --danger-bg: rgba(220,38,38,0.06);
+      --warning-bg: rgba(217,119,6,0.1);
+      --warning-text: #B45309;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .app {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    .header { margin-bottom: 32px; }
+
+    .header-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .header-tag {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-dim);
+      border: 1px solid var(--border-accent);
+      padding: 3px 10px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .header h1 {
+      font-size: clamp(24px, 4vw, 36px);
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .header-sub {
+      font-size: 15px;
+      color: var(--text-secondary);
+      margin-top: 6px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: color 0.2s, border-color 0.2s;
+      margin-bottom: -1px;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+    .tab.active {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    .view { display: none; }
+    .view.active { display: block; }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    label {
+      display: block;
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="url"],
+    select,
+    textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    select {
+      cursor: pointer;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 36px;
+    }
+
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: var(--font-mono);
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 6px;
+      font-family: var(--font-display);
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg-primary);
+    }
+
+    [data-theme="light"] .btn-primary { color: #FFFFFF; }
+
+    .btn-secondary {
+      background: var(--bg-hover);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+
+    .btn:hover { opacity: 0.88; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .search-input-wrap {
+      flex: 1;
+      position: relative;
+    }
+
+    .search-prefix {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 13px 16px 13px 36px;
+      font-family: var(--font-mono);
+      font-size: 15px;
+    }
+
+    .doc-selector {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .doc-selector select {
+      width: 240px;
+    }
+
+    .search-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .btn-refresh {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-refresh:hover { border-color: var(--accent); color: var(--accent); }
+
+    .error-box {
+      display: none;
+      background: var(--danger-bg);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      border-radius: 6px;
+      padding: 14px 20px;
+      color: var(--danger);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .error-box.visible { display: block; }
+
+    .success-box {
+      display: none;
+      background: var(--accent-dim);
+      border: 1px solid var(--border-accent);
+      border-radius: 6px;
+      padding: 14px 20px;
+      color: var(--accent);
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .success-box.visible { display: block; }
+
+    .loading { display: none; text-align: center; padding: 48px 20px; }
+    .loading.visible { display: block; }
+
+    .spinner {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading p {
+      margin-top: 14px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      font-family: var(--font-mono);
+    }
+
+    .table-scroll { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead th {
+      padding: 11px 20px;
+      text-align: left;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+      background: var(--bg-secondary);
+    }
+
+    tbody td {
+      padding: 12px 20px;
+      font-size: 14px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    tbody tr { transition: background 0.12s; }
+    tbody tr:hover { background: var(--bg-hover); }
+    tbody tr:last-child td { border-bottom: none; }
+
+    .tag {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--accent-dim);
+      color: var(--accent);
+      border: 1px solid var(--border-accent);
+    }
+
+    .hl {
+      background: var(--warning-bg);
+      color: var(--warning-text);
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+
+    .preview-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .preview-table th {
+      padding: 8px 14px;
+      font-size: 12px;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .preview-table td {
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .preview-table .empty-cell {
+      color: var(--danger);
+      font-style: italic;
+    }
+
+    .missing-fields {
+      background: var(--warning-bg);
+      border: 1px solid rgba(251, 191, 36, 0.2);
+      border-radius: 6px;
+      padding: 12px 16px;
+      color: var(--warning-text);
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+
+    .settings-section {
+      margin-bottom: 28px;
+    }
+
+    .settings-section h3 {
+      font-size: 14px;
+      color: var(--accent);
+      margin-bottom: 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .doc-list-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .doc-list-item .name {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .doc-list-item .actions {
+      display: flex;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    .form-row {
+      display: flex;
+      gap: 14px;
+    }
+
+    .form-row .form-group {
+      flex: 1;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.visible { display: flex; }
+
+    .modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      max-width: 520px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    /* ── Toast ── */
+    .toast {
+      display: none;
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 2000;
+      padding: 14px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      max-width: 400px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .toast.visible { display: block; }
+    .toast.success {
+      background: var(--accent-dim);
+      border: 1px solid var(--border-accent);
+      color: var(--accent);
+    }
+    .toast.error {
+      background: var(--danger-bg);
+      border: 1px solid rgba(248, 113, 113, 0.2);
+      color: var(--danger);
+    }
+
+    .log-entry {
+      display: grid;
+      grid-template-columns: 70px 60px 50px 1fr;
+      gap: 8px;
+      padding: 4px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+    }
+    .log-entry .log-time { color: var(--text-muted); }
+    .log-entry .log-type { color: var(--accent); }
+    .log-entry .log-result.success { color: var(--accent); }
+    .log-entry .log-result.error { color: var(--danger); }
+    .log-entry .log-detail { color: var(--text-secondary); word-break: break-all; }
+
+    @media (max-width: 640px) {
+      .app { padding: 24px 12px 48px; }
+      .card { padding: 18px; }
+      .search-row { flex-direction: column; }
+      .form-row { flex-direction: column; }
+      .doc-selector select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="header-top">
+        <span class="header-tag">v2.1.0</span>
+        <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="切换主题" style="margin-left:auto;background:var(--bg-hover);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all 0.2s;">🌙</button>
+      </div>
+      <h1>综合电商售后处理系统</h1>
+      <p class="header-sub">查询 · 写入 · 设置 — 数据来源：<code>腾讯文档</code></p>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-view="query" onclick="switchView('query')">查询</button>
+      <button class="tab" data-view="write" onclick="switchView('write')">写入</button>
+      <button class="tab" data-view="settings" onclick="switchView('settings')">设置</button>
+    </nav>
+
+    <!-- Query View -->
+    <section class="view active" id="view-query">
+      <div class="card">
+        <div class="doc-selector">
+          <label for="queryDocSelect" style="margin:0">文档：</label>
+          <select id="queryDocSelect" onchange="onQueryDocChange()"></select>
+        </div>
+        <div class="search-row">
+          <div class="search-input-wrap">
+            <span class="search-prefix">&gt;</span>
+            <input type="text" class="search-input" id="searchInput" placeholder="输入快递单号查询登记记录..." autocomplete="off" spellcheck="false"/>
+          </div>
+          <button class="btn btn-primary" id="searchBtn" onclick="doSearch()">查询</button>
+          <button class="btn btn-secondary" id="wdtSearchBtn" onclick="doWdtSearch()">ERP反查</button>
+        </div>
+        <div class="search-meta">
+          <span id="statusText">ready</span>
+          <button class="btn-refresh" onclick="doRefresh()">刷新数据</button>
+        </div>
+      </div>
+
+      <div class="error-box" id="errorMsg"></div>
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>fetching data...</p>
+      </div>
+
+      <div class="card" id="resultPanel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2 class="card-title" style="margin:0">查询结果</h2>
+          <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-secondary)">共 <em id="totalCount" style="font-style:normal;color:var(--accent);font-weight:600">0</em> 条</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>来源</th><th>登记日期</th><th>快递单号</th><th>商品名称</th>
+                <th>正品</th><th>次品</th><th>次品备注</th><th>备注</th>
+              </tr>
+            </thead>
+            <tbody id="resultBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="wdtResultPanel" style="display:none">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h2 class="card-title" style="margin:0">ERP订单信息</h2>
+          <span style="font-family:var(--font-mono);font-size:13px;color:var(--text-secondary)">旺店通 · 共 <em id="wdtTotalCount" style="font-style:normal;color:var(--accent);font-weight:600">0</em> 条</span>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>原始单号</th><th>物流单号</th><th>店铺名称</th><th>平台</th>
+                <th>物流公司</th><th>订单状态</th><th>收件地区</th>
+              </tr>
+            </thead>
+            <tbody id="wdtResultBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Write View -->
+    <section class="view" id="view-write">
+      <div class="card">
+        <h2 class="card-title">写入新记录</h2>
+        <div class="form-row">
+          <div class="form-group">
+            <label>选择文档</label>
+            <select id="writeDocSelect" onchange="onWriteDocChange()"></select>
+          </div>
+          <div class="form-group">
+            <label>选择目标表格</label>
+            <select id="writeTargetSelect"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>用自然语言描述要写入的内容</label>
+          <textarea id="writeDescription" placeholder="例如：9831745985570 丢件理赔54.9元 运费7元&#10;系统会自动识别物流单号并从旺店通ERP反查原始单号、店铺名、平台"></textarea>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="extractBtn" onclick="doExtract()">提取并预览</button>
+        </div>
+      </div>
+
+      <div class="error-box" id="writeError"></div>
+      <div class="success-box" id="writeSuccess"></div>
+      <div class="loading" id="writeLoading">
+        <div class="spinner"></div>
+        <p>LLM 正在分析...</p>
+      </div>
+
+      <div class="card" id="previewPanel" style="display:none">
+        <h2 class="card-title">写入预览</h2>
+        <div id="missingFields" class="missing-fields" style="display:none"></div>
+        <div class="table-scroll">
+          <table class="preview-table">
+            <thead><tr id="previewHeader"></tr></thead>
+            <tbody><tr id="previewRow"></tr></tbody>
+          </table>
+        </div>
+        <div id="debugInfo" style="display:none;margin-top:12px;padding:10px 14px;background:var(--bg-primary);border:1px solid var(--border);border-radius:6px;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);"></div>
+        <div style="margin-top:16px;display:flex;gap:10px">
+          <button class="btn btn-primary" onclick="doWrite()">确认写入</button>
+          <button class="btn btn-secondary" onclick="cancelWrite()">取消</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Settings View -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <h2 class="card-title">系统设置</h2>
+
+        <div class="settings-section">
+          <h3>腾讯文档配置</h3>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="cfgTencentKey" placeholder="腾讯文档 API Key"/>
+          </div>
+          <div class="form-group">
+            <label>MCP API 地址</label>
+            <input type="url" id="cfgTencentUrl" placeholder="https://docs.qq.com/openapi/mcp"/>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>LLM 配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>服务商</label>
+              <select id="cfgLlmProvider" onchange="onLlmProviderChange()">
+                <option value="deepseek">DeepSeek</option>
+                <option value="doubao">豆包 (火山引擎)</option>
+                <option value="qwen">通义千问</option>
+                <option value="ollama">Ollama (本地)</option>
+                <option value="openai">OpenAI</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>模型名称</label>
+              <input type="text" id="cfgLlmModel" placeholder="deepseek-chat"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="cfgLlmKey" placeholder="LLM API Key"/>
+          </div>
+          <div class="form-group">
+            <label>Base URL</label>
+            <input type="url" id="cfgLlmUrl" placeholder="https://api.deepseek.com"/>
+          </div>
+          <div class="btn-row" style="margin-top:8px">
+            <button class="btn btn-secondary" onclick="testLLM()">测试连接</button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>文档配置</h3>
+          <div id="docListContainer"></div>
+          <button class="btn btn-secondary" onclick="addDocument()" style="margin-top:8px">+ 添加文档</button>
+        </div>
+
+        <div class="settings-section">
+          <h3>缓存配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>缓存有效期（秒）</label>
+              <input type="text" id="cfgCacheTtl" placeholder="300"/>
+            </div>
+            <div class="form-group">
+              <label>自动刷新间隔（秒）</label>
+              <input type="text" id="cfgCacheRefresh" placeholder="1800"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveSettings()">保存配置</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Document Edit Modal -->
+    <div class="modal-overlay" id="docModal">
+      <div class="modal">
+        <h2 class="modal-title" id="docModalTitle">添加文档</h2>
+        <div class="form-group">
+          <label>文档名称</label>
+          <input type="text" id="modalDocName" placeholder="如：和旭电商退货登记"/>
+        </div>
+        <div class="form-group">
+          <label>腾讯文档 File ID</label>
+          <input type="text" id="modalDocFileId" placeholder="文档 ID"/>
+        </div>
+        <div class="form-group">
+          <label>读取 Sheet 关键词（逗号分隔）</label>
+          <input type="text" id="modalDocKeywords" placeholder="客退,退货"/>
+        </div>
+        <div class="form-group">
+          <label>写入目标（每行一个，格式：显示名|sheet名）</label>
+          <textarea id="modalDocTargets" placeholder="快递理赔登记表|理赔登记&#10;售后换货登记表|换货登记" style="min-height:60px"></textarea>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="modalDocDefault" style="width:auto;display:inline;margin-right:6px"/>
+            设为默认文档
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeDocModal()">取消</button>
+          <button class="btn btn-primary" id="docModalSave" onclick="saveDocModal()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirm Modal -->
+    <div class="modal-overlay" id="deleteModal">
+      <div class="modal" style="max-width:400px">
+        <h2 class="modal-title">确认删除</h2>
+        <p id="deleteModalText" style="color:var(--text-secondary);font-size:14px;line-height:1.6"></p>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeDeleteModal()">取消</button>
+          <button class="btn btn-danger" id="deleteConfirmBtn">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+
+    <div class="card" id="logPanel" style="position:fixed;bottom:0;left:0;right:0;max-height:240px;overflow-y:auto;z-index:900;display:none;border-radius:0;border-left:none;border-right:none;border-bottom:none;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;position:sticky;top:0;background:var(--bg-card);padding:8px 0;z-index:1;">
+        <h2 class="card-title" style="margin:0;font-size:13px;">操作日志</h2>
+        <div style="display:flex;gap:8px;">
+          <button class="btn-refresh" onclick="clearLog()">清空</button>
+          <button class="btn-refresh" onclick="toggleLogPanel()">收起</button>
+        </div>
+      </div>
+      <div id="logList" style="font-family:var(--font-mono);font-size:12px;"></div>
+    </div>
+    <button class="btn-refresh" id="logToggleBtn" onclick="toggleLogPanel()" style="position:fixed;bottom:16px;right:24px;z-index:901;padding:6px 14px;">日志</button>
+  </div>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme') || 'dark';
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      $('themeToggleBtn').textContent = next === 'dark' ? '🌙' : '☀️';
+      localStorage.setItem('theme', next);
+    }
+
+    let currentConfig = null;
+    let documents = [];
+    let writePreviewData = null;
+
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function hl(text, q) {
+      if (!q) return esc(text);
+      const safe = esc(text);
+      const sq = esc(q).replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&');
+      return safe.replace(new RegExp('(' + sq + ')', 'gi'), '<span class="hl">$1</span>');
+    }
+
+    function showError(msg, container) {
+      const el = container || $('errorMsg');
+      el.textContent = msg;
+      el.classList.add('visible');
+      setTimeout(() => el.classList.remove('visible'), 8000);
+    }
+
+    function showSuccess(msg) {
+      const el = $('writeSuccess');
+      el.textContent = msg;
+      el.classList.add('visible');
+      setTimeout(() => el.classList.remove('visible'), 8000);
+    }
+
+    function setStatus(t) { $('statusText').textContent = t; }
+
+    function showToast(msg, type) {
+      const el = $('toast');
+      el.textContent = msg;
+      el.className = 'toast ' + (type || 'success') + ' visible';
+      setTimeout(() => el.classList.remove('visible'), 5000);
+    }
+
+    let operationLogs = [];
+    function addLog(type, result, detail) {
+      const now = new Date();
+      const time = now.toLocaleTimeString('zh-CN', { hour12: false });
+      operationLogs.unshift({ time, type, result, detail });
+      if (operationLogs.length > 10) operationLogs.pop();
+      renderLogs();
+    }
+    function renderLogs() {
+      const list = $('logList');
+      if (operationLogs.length === 0) {
+        list.innerHTML = '<div style="color:var(--text-muted);padding:8px 0;">暂无操作记录</div>';
+        return;
+      }
+      list.innerHTML = operationLogs.map(log =>
+        '<div class="log-entry">' +
+        '<span class="log-time">' + esc(log.time) + '</span>' +
+        '<span class="log-type">' + esc(log.type) + '</span>' +
+        '<span class="log-result ' + (log.result === '成功' ? 'success' : 'error') + '">' + esc(log.result) + '</span>' +
+        '<span class="log-detail">' + esc(log.detail) + '</span>' +
+        '</div>'
+      ).join('');
+    }
+    function toggleLogPanel() {
+      const panel = $('logPanel');
+      if (panel.style.display === 'none') { panel.style.display = 'block'; } else { panel.style.display = 'none'; }
+    }
+    function clearLog() { operationLogs = []; renderLogs(); }
+
+    function switchView(viewName) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.querySelector('.tab[data-view="' + viewName + '"]').classList.add('active');
+      $('view-' + viewName).classList.add('active');
+
+      if (viewName === 'settings') loadSettings();
+      if (viewName === 'query') loadDocSelector('queryDocSelect');
+      if (viewName === 'write') loadDocSelector('writeDocSelect');
+    }
+
+    async function loadDocSelector(selectId) {
+      try {
+        const resp = await fetch('/api/documents');
+        const data = await resp.json();
+        if (data.success) {
+          documents = data.data;
+          const sel = $(selectId);
+          sel.innerHTML = '';
+          documents.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d.id;
+            opt.textContent = d.name + (d.isDefault ? ' (默认)' : '');
+            if (d.isDefault) opt.selected = true;
+            sel.appendChild(opt);
+          });
+
+          if (selectId === 'writeDocSelect') {
+            onWriteDocChange();
+          }
+        }
+      } catch (err) {
+        console.error('加载文档列表失败:', err);
+      }
+    }
+
+    function onQueryDocChange() {
+      setStatus('ready');
+    }
+
+    async function onWriteDocChange() {
+      const docId = $('writeDocSelect').value;
+      const doc = documents.find(d => d.id === docId);
+      if (!doc) return;
+
+      try {
+        const resp = await fetch('/api/config');
+        const data = await resp.json();
+        if (data.success) {
+          const docConfig = data.data.documents.find(d => d.id === docId);
+          const targets = (docConfig && docConfig.writeTargets) || [];
+          const sel = $('writeTargetSelect');
+          sel.innerHTML = '';
+          if (targets.length === 0) {
+            sel.innerHTML = '<option value="">未配置写入目标</option>';
+          } else {
+            targets.forEach(t => {
+              const opt = document.createElement('option');
+              opt.value = t.id;
+              opt.textContent = t.name;
+              sel.appendChild(opt);
+            });
+          }
+        }
+      } catch (err) {
+        console.error('加载写入目标失败:', err);
+      }
+    }
+
+    $('searchInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+
+    async function doSearch() {
+      const q = $('searchInput').value.trim();
+      if (!q) { showError('请输入快递单号'); $('searchInput').focus(); return; }
+
+      const docId = $('queryDocSelect').value;
+      $('resultPanel').style.display = 'none';
+      $('loading').classList.add('visible');
+      $('errorMsg').classList.remove('visible');
+      $('searchBtn').disabled = true;
+      setStatus('querying...');
+
+      try {
+        const resp = await fetch('/api/search?q=' + encodeURIComponent(q) + '&docId=' + encodeURIComponent(docId));
+        const data = await resp.json();
+        $('loading').classList.remove('visible');
+
+        if (!data.success) {
+          showError(data.error || '查询失败');
+          showToast(data.error || '查询失败', 'error');
+          addLog('查询', '失败', data.error || '查询失败');
+          setStatus('error');
+          return;
+        }
+
+        $('totalCount').textContent = data.total;
+        const body = $('resultBody');
+        body.innerHTML = '';
+
+        if (data.total === 0) {
+          body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text-muted)">未找到匹配记录</td></tr>';
+        } else {
+          data.data.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td><span class="tag">' + esc(r.source) + '</span></td>' +
+              '<td>' + esc(r['登记日期']) + '</td>' +
+              '<td style="color:var(--text-primary);font-family:var(--font-mono);font-size:13px">' + hl(r['快递单号'], q) + '</td>' +
+              '<td>' + esc(r['商品名称']) + '</td>' +
+              '<td>' + esc(r['正品数量']) + '</td>' +
+              '<td>' + esc(r['次品数量']) + '</td>' +
+              '<td>' + esc(r['次品备注']) + '</td>' +
+              '<td>' + esc(r['备注']) + '</td>';
+            body.appendChild(tr);
+          });
+        }
+
+        $('resultPanel').style.display = 'block';
+        setStatus('done — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
+        showToast('查询完成，共 ' + data.total + ' 条结果', 'success');
+        addLog('查询', '成功', '单号: ' + q + '，共 ' + data.total + ' 条');
+      } catch (err) {
+        $('loading').classList.remove('visible');
+        showError('网络请求失败');
+        showToast('网络请求失败', 'error');
+        addLog('查询', '失败', '网络错误');
+        setStatus('network error');
+      } finally {
+        $('searchBtn').disabled = false;
+      }
+    }
+
+    async function doRefresh() {
+      const docId = $('queryDocSelect').value;
+      setStatus('refreshing...');
+      try {
+        const resp = await fetch('/api/refresh?docId=' + encodeURIComponent(docId));
+        const data = await resp.json();
+        if (data.success) {
+          setStatus('synced — ' + data.total + ' records');
+          showToast('刷新成功，共 ' + data.total + ' 条记录', 'success');
+          addLog('刷新', '成功', '共 ' + data.total + ' 条记录');
+        } else {
+          showError('刷新失败: ' + (data.error || ''));
+          showToast('刷新失败: ' + (data.error || ''), 'error');
+          addLog('刷新', '失败', data.error || '刷新失败');
+          setStatus('error');
+        }
+      } catch {
+        setStatus('network error');
+        showToast('刷新失败: 网络错误', 'error');
+        addLog('刷新', '失败', '网络错误');
+      }
+    }
+
+    const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
+    function formatTradeStatus(s) { return TRADE_STATUS_MAP[s] || ('状态' + s); }
+
+    async function doWdtSearch() {
+      const q = $('searchInput').value.trim();
+      if (!q) { showError('请输入物流单号或原始单号'); $('searchInput').focus(); return; }
+
+      $('wdtResultPanel').style.display = 'none';
+      $('loading').classList.add('visible');
+      $('errorMsg').classList.remove('visible');
+      $('wdtSearchBtn').disabled = true;
+      setStatus('querying ERP...');
+
+      try {
+        const resp = await fetch('/api/wdt/query?q=' + encodeURIComponent(q));
+        const data = await resp.json();
+        $('loading').classList.remove('visible');
+
+        if (!data.success) {
+          showError(data.error || 'ERP查询失败');
+          showToast(data.error || 'ERP查询失败', 'error');
+          addLog('ERP反查', '失败', data.error || '查询失败');
+          setStatus('error');
+          return;
+        }
+
+        $('wdtTotalCount').textContent = data.total;
+        const body = $('wdtResultBody');
+        body.innerHTML = '';
+
+        if (data.total === 0) {
+          body.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted)">未找到匹配的ERP订单</td></tr>';
+        } else {
+          data.orders.forEach(o => {
+            const tr = document.createElement('tr');
+            tr.innerHTML =
+              '<td style="font-family:var(--font-mono);font-size:13px;color:var(--text-primary)">' + esc(o.src_tids) + '</td>' +
+              '<td style="font-family:var(--font-mono);font-size:13px;color:var(--accent)">' + hl(o.logistics_no, q) + '</td>' +
+              '<td>' + esc(o.parsedShopName || o.shop_name) + '</td>' +
+              '<td><span class="tag">' + esc(o.platform) + '</span></td>' +
+              '<td>' + esc(o.logistics_name) + '</td>' +
+              '<td>' + esc(formatTradeStatus(o.trade_status)) + '</td>' +
+              '<td>' + esc(o.receiver_area) + '</td>';
+            body.appendChild(tr);
+          });
+        }
+
+        $('wdtResultPanel').style.display = 'block';
+        setStatus('ERP — ' + data.total + ' result' + (data.total > 1 ? 's' : ''));
+        showToast('ERP查询完成，共 ' + data.total + ' 条结果', 'success');
+        addLog('ERP反查', '成功', '查询: ' + q + '，共 ' + data.total + ' 条');
+      } catch (err) {
+        $('loading').classList.remove('visible');
+        showError('网络请求失败');
+        showToast('网络请求失败', 'error');
+        addLog('ERP反查', '失败', '网络错误');
+        setStatus('network error');
+      } finally {
+        $('wdtSearchBtn').disabled = false;
+      }
+    }
+
+    async function doExtract() {
+      const docId = $('writeDocSelect').value;
+      const targetId = $('writeTargetSelect').value;
+      const description = $('writeDescription').value.trim();
+
+      if (!targetId) { showError('请选择目标表格', 'writeError'); return; }
+      if (!description) { showError('请输入描述内容', 'writeError'); return; }
+
+      $('previewPanel').style.display = 'none';
+      $('writeLoading').classList.add('visible');
+      $('writeError').classList.remove('visible');
+      $('writeSuccess').classList.remove('visible');
+      $('extractBtn').disabled = true;
+
+      try {
+        const resp = await fetch('/api/write/extract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ docId, targetId, description })
+        });
+        const data = await resp.json();
+        $('writeLoading').classList.remove('visible');
+
+        if (!data.success) {
+          showError(data.error || '提取失败', 'writeError');
+          showToast(data.error || '提取失败', 'error');
+          addLog('提取', '失败', data.error || '提取失败');
+          return;
+        }
+
+        writePreviewData = data.data;
+
+        const headers = data.data.headers;
+        const values = data.data.values;
+
+        $('previewHeader').innerHTML = headers.map(h => '<th>' + esc(h) + '</th>').join('');
+        $('previewRow').innerHTML = values.map(v => {
+          if (!v || !v.trim()) return '<td class="empty-cell">(空)</td>';
+          return '<td>' + esc(v) + '</td>';
+        }).join('');
+
+        if (data.data.missing && data.data.missing.length > 0) {
+          const el = $('missingFields');
+          el.style.display = 'block';
+          el.textContent = '⚠ 以下字段未填写，建议补充: ' + data.data.missing.join(', ');
+        } else {
+          $('missingFields').style.display = 'none';
+        }
+
+        const d = data.data.debug;
+        if (d) {
+          $('debugInfo').style.display = 'block';
+          let debugHtml = '识别方式: <span style="color:var(--accent)">' + esc(d.method) + '</span> | 耗时: ' + d.parseTime + 'ms | 非空字段: ' + d.nonEmptyCount + '/' + d.headerCount;
+          if (d.wdtMatch) {
+            debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + '</span>';
+          }
+          if (d.llmError) {
+            debugHtml += ' | LLM错误: <span style="color:var(--danger)">' + esc(d.llmError) + '</span>';
+          }
+          $('debugInfo').innerHTML = debugHtml;
+        } else {
+          $('debugInfo').style.display = 'none';
+        }
+
+        $('previewPanel').style.display = 'block';
+        showToast('提取完成（' + (data.data.debug ? data.data.debug.method : '') + '）', 'success');
+        addLog('提取', '成功', '方式: ' + (data.data.debug?.method || '未知') + '，非空字段: ' + (data.data.debug?.nonEmptyCount || 0));
+      } catch (err) {
+        $('writeLoading').classList.remove('visible');
+        showError('网络请求失败: ' + err.message, 'writeError');
+        showToast('网络请求失败: ' + err.message, 'error');
+        addLog('提取', '失败', '网络错误: ' + err.message);
+      } finally {
+        $('extractBtn').disabled = false;
+      }
+    }
+
+    async function doWrite() {
+      if (!writePreviewData) return;
+
+      const docId = $('writeDocSelect').value;
+
+      try {
+        const resp = await fetch('/api/write/execute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            docId,
+            targetFileId: writePreviewData.targetFileId,
+            sheetId: writePreviewData.sheetId,
+            targetRow: writePreviewData.targetRow,
+            values: writePreviewData.values
+          })
+        });
+        const data = await resp.json();
+
+        if (!data.success) {
+          showError(data.error || '写入失败', 'writeError');
+          showToast(data.error || '写入失败', 'error');
+          addLog('写入', '失败', data.error || '写入失败');
+          return;
+        }
+
+        showSuccess(data.message);
+        showToast(data.message, 'success');
+        addLog('写入', '成功', '行: ' + writePreviewData.targetRow + '，' + data.message);
+        $('previewPanel').style.display = 'none';
+        $('writeDescription').value = '';
+        writePreviewData = null;
+      } catch (err) {
+        showError('网络请求失败: ' + err.message, 'writeError');
+        showToast('网络请求失败: ' + err.message, 'error');
+        addLog('写入', '失败', '网络错误: ' + err.message);
+      }
+    }
+
+    function cancelWrite() {
+      $('previewPanel').style.display = 'none';
+      writePreviewData = null;
+    }
+
+    async function loadSettings() {
+      try {
+        const resp = await fetch('/api/config');
+        const data = await resp.json();
+        if (!data.success) return;
+
+        currentConfig = data.data;
+
+        $('cfgTencentKey').value = currentConfig.tencentDocs.apiKey || '';
+        $('cfgTencentUrl').value = currentConfig.tencentDocs.mcpUrl || '';
+
+        $('cfgLlmProvider').value = currentConfig.llm.provider || 'deepseek';
+        $('cfgLlmModel').value = currentConfig.llm.model || '';
+        $('cfgLlmKey').value = currentConfig.llm.apiKey || '';
+        $('cfgLlmUrl').value = currentConfig.llm.baseUrl || '';
+
+        $('cfgCacheTtl').value = (currentConfig.cache.ttl || 300000) / 1000;
+        $('cfgCacheRefresh').value = (currentConfig.cache.autoRefreshInterval || 1800000) / 1000;
+
+        renderDocList();
+      } catch (err) {
+        console.error('加载设置失败:', err);
+      }
+    }
+
+    function renderDocList() {
+      const container = $('docListContainer');
+      container.innerHTML = '';
+
+      if (!currentConfig.documents || currentConfig.documents.length === 0) {
+        container.innerHTML = '<p style="color:var(--text-muted);font-size:13px">暂无文档配置</p>';
+        return;
+      }
+
+      currentConfig.documents.forEach((doc, idx) => {
+        const item = document.createElement('div');
+        item.className = 'doc-list-item';
+        const isDefault = doc.id === currentConfig.defaultDocumentId;
+        item.innerHTML =
+          '<span class="name">' + esc(doc.name) + ' ' + (isDefault ? '<span class="tag">默认</span>' : '') + '</span>' +
+          '<div class="actions">' +
+            '<button class="btn btn-secondary btn-icon" onclick="editDocument(' + idx + ')">编辑</button>' +
+            '<button class="btn btn-secondary btn-icon" onclick="deleteDocument(' + idx + ')">删除</button>' +
+          '</div>';
+        container.appendChild(item);
+      });
+    }
+
+    let docModalEditIdx = -1;
+
+    function addDocument() {
+      docModalEditIdx = -1;
+      $('docModalTitle').textContent = '添加文档';
+      $('modalDocName').value = '';
+      $('modalDocFileId').value = '';
+      $('modalDocKeywords').value = '客退,退货';
+      $('modalDocTargets').value = '';
+      $('modalDocDefault').checked = !currentConfig.defaultDocumentId;
+      $('docModal').classList.add('visible');
+      $('modalDocName').focus();
+    }
+
+    function editDocument(idx) {
+      const doc = currentConfig.documents[idx];
+      docModalEditIdx = idx;
+      $('docModalTitle').textContent = '编辑文档';
+      $('modalDocName').value = doc.name || '';
+      $('modalDocFileId').value = doc.fileId || '';
+      $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');
+      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\\n');
+      $('modalDocDefault').checked = (doc.id === currentConfig.defaultDocumentId);
+      $('docModal').classList.add('visible');
+    }
+
+    function closeDocModal() {
+      $('docModal').classList.remove('visible');
+    }
+
+    function saveDocModal() {
+      const name = $('modalDocName').value.trim();
+      const fileId = $('modalDocFileId').value.trim();
+      const keywords = $('modalDocKeywords').value.trim();
+      const targetsStr = $('modalDocTargets').value.trim();
+      const isDefault = $('modalDocDefault').checked;
+
+      if (!name) { showToast('请输入文档名称', 'error'); return; }
+      if (!fileId) { showToast('请输入 File ID', 'error'); return; }
+
+      const writeTargets = targetsStr ? targetsStr.split('\\n').filter(s => s.trim()).map((s, i) => {
+        const parts = s.split('|').map(p => p.trim());
+        return {
+          id: 'target' + i,
+          name: parts[0] || parts[1] || '',
+          sheetName: parts[1] || parts[0] || ''
+        };
+      }) : [];
+
+      const docData = {
+        name: name,
+        fileId: fileId,
+        readSheetKeywords: keywords ? keywords.split(',').map(s => s.trim()).filter(Boolean) : ['客退', '退货'],
+        writeTargets: writeTargets
+      };
+
+      if (docModalEditIdx >= 0) {
+        const doc = currentConfig.documents[docModalEditIdx];
+        Object.assign(doc, docData);
+      } else {
+        docData.id = 'doc' + Date.now();
+        currentConfig.documents.push(docData);
+        if (!currentConfig.defaultDocumentId) {
+          currentConfig.defaultDocumentId = docData.id;
+        }
+      }
+
+      if (isDefault) {
+        const docId = docModalEditIdx >= 0 ? currentConfig.documents[docModalEditIdx].id : docData.id;
+        currentConfig.defaultDocumentId = docId;
+      }
+
+      closeDocModal();
+      renderDocList();
+      showToast('文档已保存，点击下方"保存配置"生效');
+    }
+
+    let deleteTargetIdx = -1;
+
+    function deleteDocument(idx) {
+      deleteTargetIdx = idx;
+      $('deleteModalText').textContent = '确认删除文档"' + currentConfig.documents[idx].name + '"？此操作需点击下方"保存配置"才会真正生效。';
+      $('deleteConfirmBtn').onclick = function() {
+        const docId = currentConfig.documents[deleteTargetIdx].id;
+        currentConfig.documents.splice(deleteTargetIdx, 1);
+        if (currentConfig.defaultDocumentId === docId) {
+          currentConfig.defaultDocumentId = currentConfig.documents[0] ? currentConfig.documents[0].id : '';
+        }
+        closeDeleteModal();
+        renderDocList();
+        showToast('文档已删除，点击下方"保存配置"生效');
+      };
+      $('deleteModal').classList.add('visible');
+    }
+
+    function closeDeleteModal() {
+      $('deleteModal').classList.remove('visible');
+    }
+
+    function onLlmProviderChange() {
+      const provider = $('cfgLlmProvider').value;
+      const presets = {
+        deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-chat' },
+        doubao: { url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-1-5-pro-32k' },
+        qwen: { url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+        ollama: { url: 'http://localhost:11434/v1', model: 'qwen2.5:7b' },
+        openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' }
+      };
+      const preset = presets[provider];
+      if (preset) {
+        $('cfgLlmUrl').value = preset.url;
+        $('cfgLlmModel').value = preset.model;
+      }
+    }
+
+    async function testLLM() {
+      const llmConfig = {
+        provider: $('cfgLlmProvider').value,
+        apiKey: $('cfgLlmKey').value.includes('****') ? (currentConfig.llm.apiKey || '') : $('cfgLlmKey').value,
+        baseUrl: $('cfgLlmUrl').value,
+        model: $('cfgLlmModel').value
+      };
+
+      try {
+        const resp = await fetch('/api/llm/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ llmConfig })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast('✓ ' + data.message, 'success');
+        } else {
+          showToast('✗ ' + data.message, 'error');
+        }
+      } catch (err) {
+        showToast('✗ 请求失败: ' + err.message, 'error');
+      }
+    }
+
+    async function saveSettings() {
+      const config = {
+        documents: currentConfig.documents,
+        defaultDocumentId: currentConfig.defaultDocumentId,
+        tencentDocs: {
+          apiKey: $('cfgTencentKey').value,
+          mcpUrl: $('cfgTencentUrl').value
+        },
+        llm: {
+          provider: $('cfgLlmProvider').value,
+          apiKey: $('cfgLlmKey').value,
+          baseUrl: $('cfgLlmUrl').value,
+          model: $('cfgLlmModel').value
+        },
+        cache: {
+          ttl: parseInt($('cfgCacheTtl').value) * 1000 || 300000,
+          autoRefreshInterval: parseInt($('cfgCacheRefresh').value) * 1000 || 1800000
+        }
+      };
+
+      try {
+        const resp = await fetch('/api/config', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(config)
+        });
+        const data = await resp.json();
+        if (data.success) {
+          showToast('配置已保存');
+          loadSettings();
+        } else {
+          showToast('保存失败: ' + (data.error || ''), 'error');
+        }
+      } catch (err) {
+        showToast('保存失败: ' + err.message, 'error');
+      }
+    }
+
+    loadDocSelector('queryDocSelect');
+  </script>
+</body>
+</html>`;
+
+// --- MD5 Implementation (pure JS, for Wangdian API signing) ---
+function md5(str) {
+  function rh(n) { var j, s = ''; for (j = 0; j <= 3; j++) s += ((n >> (j * 8 + 4)) & 0x0F).toString(16) + ((n >> (j * 8)) & 0x0F).toString(16); return s; }
+  function ad(x, y) { var l = (x & 0xFFFF) + (y & 0xFFFF); var m = (x >> 16) + (y >> 16) + (l >> 16); return (m << 16) | (l & 0xFFFF); }
+  function rl(n, c) { return (n << c) | (n >>> (32 - c)); }
+  function cm(q, a, b, x, s, t) { return ad(rl(ad(ad(a, q), ad(x, t)), s), b); }
+  function ff(a, b, c, d, x, s, t) { return cm((b & c) | (~b & d), a, b, x, s, t); }
+  function gg(a, b, c, d, x, s, t) { return cm((b & d) | (c & ~d), a, b, x, s, t); }
+  function hh(a, b, c, d, x, s, t) { return cm(b ^ c ^ d, a, b, x, s, t); }
+  function ii(a, b, c, d, x, s, t) { return cm(c ^ (b | ~d), a, b, x, s, t); }
+  function cv(s) { var u = unescape(encodeURIComponent(s)); var n = u.length; var w = []; for (var i = 0; i < n; i++) w[i >> 2] = (w[i >> 2] || 0) | (u.charCodeAt(i) << ((i % 4) * 8)); w[n >> 2] = (w[n >> 2] || 0) | (0x80 << ((n % 4) * 8)); var m = Math.ceil(n / 4) + 1; w[m * 16 - 2] = n * 8; return w; }
+  var x = cv(str); var a = 1732584193, b = -271733879, c = -1732584194, d = 271733878;
+  for (var i = 0; i < x.length; i += 16) {
+    var oa = a, ob = b, oc = c, od = d;
+    a=ff(a,b,c,d,x[i],7,-680876936);d=ff(d,a,b,c,x[i+1],12,-389564586);c=ff(c,d,a,b,x[i+2],17,606105819);b=ff(b,c,d,a,x[i+3],22,-1044525330);
+    a=ff(a,b,c,d,x[i+4],7,-176418897);d=ff(d,a,b,c,x[i+5],12,1200080426);c=ff(c,d,a,b,x[i+6],17,-1473231341);b=ff(b,c,d,a,x[i+7],22,-45705983);
+    a=ff(a,b,c,d,x[i+8],7,1770035416);d=ff(d,a,b,c,x[i+9],12,-1958414417);c=ff(c,d,a,b,x[i+10],17,-42063);b=ff(b,c,d,a,x[i+11],22,-1990404162);
+    a=ff(a,b,c,d,x[i+12],7,1804603682);d=ff(d,a,b,c,x[i+13],12,-40341101);c=ff(c,d,a,b,x[i+14],17,-1502002290);b=ff(b,c,d,a,x[i+15],22,1236535329);
+    a=gg(a,b,c,d,x[i+1],5,-165796510);d=gg(d,a,b,c,x[i+6],9,-1069501632);c=gg(c,d,a,b,x[i+11],14,643717713);b=gg(b,c,d,a,x[i],20,-373897302);
+    a=gg(a,b,c,d,x[i+5],5,-701558691);d=gg(d,a,b,c,x[i+10],9,38016083);c=gg(c,d,a,b,x[i+15],14,-660478335);b=gg(b,c,d,a,x[i+4],20,-405537848);
+    a=gg(a,b,c,d,x[i+9],5,568446438);d=gg(d,a,b,c,x[i+14],9,-1019803690);c=gg(c,d,a,b,x[i+3],14,-187363961);b=gg(b,c,d,a,x[i+8],20,1163531501);
+    a=gg(a,b,c,d,x[i+13],5,-1444681467);d=gg(d,a,b,c,x[i+2],9,-51403784);c=gg(c,d,a,b,x[i+7],14,1735328473);b=gg(b,c,d,a,x[i+12],20,-1926607734);
+    a=hh(a,b,c,d,x[i+5],4,-378558);d=hh(d,a,b,c,x[i+8],11,-2022574463);c=hh(c,d,a,b,x[i+11],16,1839030562);b=hh(b,c,d,a,x[i+14],23,-35309556);
+    a=hh(a,b,c,d,x[i+1],4,-1530992060);d=hh(d,a,b,c,x[i+4],11,1272893353);c=hh(c,d,a,b,x[i+7],16,-155497632);b=hh(b,c,d,a,x[i+10],23,-1094730640);
+    a=hh(a,b,c,d,x[i+13],4,681279174);d=hh(d,a,b,c,x[i],11,-358537222);c=hh(c,d,a,b,x[i+3],16,-722521979);b=hh(b,c,d,a,x[i+6],23,76029189);
+    a=hh(a,b,c,d,x[i+9],4,-640364487);d=hh(d,a,b,c,x[i+12],11,-421815835);c=hh(c,d,a,b,x[i+15],16,530742520);b=hh(b,c,d,a,x[i+2],23,-995338651);
+    a=ii(a,b,c,d,x[i],6,-198630844);d=ii(d,a,b,c,x[i+7],10,1126891415);c=ii(c,d,a,b,x[i+14],15,-1416354905);b=ii(b,c,d,a,x[i+5],21,-57434055);
+    a=ii(a,b,c,d,x[i+12],6,1700485571);d=ii(d,a,b,c,x[i+3],10,-1894986606);c=ii(c,d,a,b,x[i+10],15,-1051523);b=ii(b,c,d,a,x[i+1],21,-2054922799);
+    a=ii(a,b,c,d,x[i+8],6,1873313359);d=ii(d,a,b,c,x[i+15],10,-30611744);c=ii(c,d,a,b,x[i+6],15,-1560198380);b=ii(b,c,d,a,x[i+13],21,1309151649);
+    a=ii(a,b,c,d,x[i+4],6,-145523070);d=ii(d,a,b,c,x[i+11],10,-1120210379);c=ii(c,d,a,b,x[i+2],15,718787259);b=ii(b,c,d,a,x[i+9],21,-343485551);
+    a=ad(a,oa);b=ad(b,ob);c=ad(c,oc);d=ad(d,od);
+  }
+  return rh(a)+rh(b)+rh(c)+rh(d);
+}
+
+const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"defaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"e307046ff3f64c099f678442a95bb8a5","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
 
 // --- MCP Client (Workers fetch) ---
 async function callMcpApi(mcpUrl, apiKey, method, params, sessionId) {
@@ -159,6 +1676,130 @@ async function writeRow(tencentDocsConfig, sessionId, fileId, sheetId, startRow,
   } catch (e) { return { updateNum: cellValues.length }; }
 }
 
+// --- Wangdian (旺店通) API Client (CF Worker adapted) ---
+const WDT_BASE_TIME = 1325347200; // 2012-01-01 00:00:00
+const WDT_API_URL = 'https://wdt.wangdian.cn/openapi';
+
+function calcWdtSign(secret, params) {
+  const sortedKeys = Object.keys(params).sort();
+  let signStr = secret;
+  for (const k of sortedKeys) {
+    signStr += k + params[k];
+  }
+  signStr += secret;
+  return md5(signStr);
+}
+
+async function callWdtApi(credentials, method, bodyParams) {
+  const { sid, key, secret, salt } = credentials;
+  const timestamp = Math.floor(Date.now() / 1000) - WDT_BASE_TIME;
+  const bodyContent = JSON.stringify([bodyParams]);
+
+  const signParams = {
+    body: bodyContent,
+    calc_total: '1',
+    key: key,
+    method: method,
+    page_no: '0',
+    page_size: '40',
+    salt: salt,
+    sid: sid,
+    timestamp: String(timestamp),
+    v: '1.0',
+  };
+
+  const sign = calcWdtSign(secret, signParams);
+
+  const queryParams = {
+    sid, key, salt, method,
+    timestamp: String(timestamp), v: '1.0', sign,
+    page_size: '40', page_no: '0', calc_total: '1'
+  };
+
+  const queryString = Object.entries(queryParams)
+    .map(([k, val]) => encodeURIComponent(k) + '=' + encodeURIComponent(String(val)))
+    .join('&');
+
+  const resp = await fetch(WDT_API_URL + '?' + queryString, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: bodyContent
+  });
+  const text = await resp.text();
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('旺店通API返回非JSON: ' + text.substring(0, 200));
+  }
+}
+
+function parseShopInfo(fullShopName) {
+  if (!fullShopName) return { platform: '', shopName: '' };
+  const platforms = ['京东', '淘宝', '天猫', '拼多多', '抖音', '快手', '小红书', '微信', '有赞', '微店', '苏宁', '唯品会', '当当', '1688', '阿里'];
+  let platform = '';
+  let shopName = fullShopName;
+  for (const p of platforms) {
+    if (fullShopName.startsWith(p) || fullShopName.includes(' ' + p) || fullShopName.includes(p + ' ')) {
+      platform = p;
+      break;
+    }
+  }
+  const parts = fullShopName.split(/\s+/);
+  if (parts.length >= 2) {
+    if (!platform) {
+      platform = parts[0].substring(0, 2);
+    }
+    shopName = parts.slice(1).join(' ');
+  }
+  shopName = shopName.replace(/\d+$/, '').trim();
+  return { platform, shopName };
+}
+
+async function queryWdtOrder(credentials, query) {
+  const q = String(query || '').trim();
+  if (!q) {
+    return { success: false, error: '查询内容不能为空' };
+  }
+  let result = await callWdtApi(credentials, 'sales.TradeQuery.queryWithDetail', {
+    logistics_no: q
+  });
+  if (!result.data || !result.data.order || result.data.order.length === 0) {
+    result = await callWdtApi(credentials, 'sales.TradeQuery.queryWithDetail', {
+      src_tid: q
+    });
+  }
+  if (result.status !== 0) {
+    return { success: false, error: result.message || '旺店通API返回错误' };
+  }
+  const orders = (result.data && result.data.order) || [];
+  if (orders.length === 0) {
+    return { success: true, total: 0, orders: [] };
+  }
+  const parsedOrders = orders.map(o => {
+    const shopInfo = parseShopInfo(o.shop_name);
+    return {
+      trade_no: o.trade_no || '',
+      src_tids: o.src_tids || '',
+      logistics_no: o.logistics_no || '',
+      logistics_name: o.logistics_name || '',
+      shop_name: o.shop_name || '',
+      shop_no: o.shop_no || '',
+      platform: shopInfo.platform,
+      parsedShopName: shopInfo.shopName,
+      trade_status: o.trade_status,
+      trade_time: o.trade_time || '',
+      consign_time: o.consign_time || '',
+      stockout_no: o.stockout_no || '',
+      goods_count: o.goods_count || 0,
+      goods_amount: o.goods_amount || 0,
+      receiver_area: o.receiver_area || '',
+      receiver_name: o.receiver_name || '',
+      receiver_mobile: o.receiver_mobile || ''
+    };
+  });
+  return { success: true, total: parsedOrders.length, orders: parsedOrders };
+}
+
 // --- LLM Client (Workers fetch) ---
 async function chatJSON(llmConfig, systemPrompt, userMessage) {
   if (!llmConfig.apiKey && llmConfig.provider !== 'ollama') {
@@ -230,20 +1871,26 @@ function buildSystemPrompt(headers, tableName) {
     '7. 识别输入中直接出现的字段名（如"订单号""快递单号""货值"等），提取其后的值。\n\n' +
     '【常见别名】\n' +
     '- "单号" → 快递单号\n' +
-    '- "金额/价格" → 货值\n' +
-    '- "日期" → 登记日期\n\n' +
+    '- "金额/价格" → 货值(元)\n' +
+    '- "日期" → 登记日期\n' +
+    '- "理赔" → 理赔类型（如"丢件理赔"表示理赔类型为"丢件"）\n' +
+    '- "运费" → 运费(元)\n\n' +
     '【示例1】\n' +
-    '列标题：["登记日期","店铺名称","平台","订单号","快递单号","理赔类型","货值","运费","备注"]\n' +
-    '用户输入：华强北数码3C店 淘宝 订单号123456789 快递单号SF1234567890 丢件登记理赔货值399元 运费20元\n' +
-    '输出：{"登记日期":"","店铺名称":"华强北数码3C店","平台":"淘宝","订单号":"123456789","快递单号":"SF1234567890","理赔类型":"丢件","货值":"399","运费":"20","备注":""}\n\n' +
+    '列标题：["登记日期","店铺名称","平台","订单号","快递单号","理赔类型","货值(元)","运费(元)","备注"]\n' +
+    '用户输入：华强北数码3C店 淘宝 订单号123456789 快递单号SF1234567890 丢件理赔货值399元 运费20元\n' +
+    '输出：{"登记日期":"","店铺名称":"华强北数码3C店","平台":"淘宝","订单号":"123456789","快递单号":"SF1234567890","理赔类型":"丢件","货值(元)":"399","运费(元)":"20","备注":""}\n\n' +
     '【示例2】\n' +
     '列标题：["登记日期","快递单号","商品名称","正品数量","次品数量","次品备注","备注"]\n' +
     '用户输入：2026-06-23 快递单号YT9876543210 蓝牙耳机 正品2 次品1 包装破损\n' +
     '输出：{"登记日期":"2026-06-23","快递单号":"YT9876543210","商品名称":"蓝牙耳机","正品数量":"2","次品数量":"1","次品备注":"包装破损","备注":""}\n\n' +
     '【示例3】\n' +
-    '列标题：["登记日期","店铺名称","平台","订单号","快递单号","理赔类型","货值","运费","备注"]\n' +
+    '列标题：["登记日期","店铺名称","平台","订单号","快递单号","理赔类型","货值(元)","运费(元)","备注"]\n' +
+    '用户输入：9831745985570 丢件理赔54.9元 运费7元\n' +
+    '输出：{"登记日期":"","店铺名称":"","平台":"","订单号":"","快递单号":"9831745985570","理赔类型":"丢件","货值(元)":"54.9","运费(元)":"7","备注":""}\n\n' +
+    '【示例4】\n' +
+    '列标题：["登记日期","店铺名称","平台","订单号","快递单号","理赔类型","货值(元)","运费(元)","备注"]\n' +
     '用户输入：店铺 和旭数码 平台 拼多多 订单号 9988776655 快递单号 JJD00998877 破损理赔 货值 158 运费 12\n' +
-    '输出：{"登记日期":"","店铺名称":"和旭数码","平台":"拼多多","订单号":"9988776655","快递单号":"JJD00998877","理赔类型":"破损","货值":"158","运费":"12","备注":""}';
+    '输出：{"登记日期":"","店铺名称":"和旭数码","平台":"拼多多","订单号":"9988776655","快递单号":"JJD00998877","理赔类型":"破损","货值(元)":"158","运费(元)":"12","备注":""}';
 }
 
 function cleanValue(val) {
@@ -254,15 +1901,35 @@ function cleanValue(val) {
   return v.trim();
 }
 
+// 去除表头中的括号后缀用于匹配，如 "货值(元)" → "货值"
+function stripHeaderSuffix(h) {
+  return h.replace(/[（(].*?[)）]\s*$/, '').trim();
+}
+
 function ruleBasedExtract(headers, description) {
   const result = {};
   headers.forEach(h => { result[h] = ''; });
-  const sortedHeaders = [...headers].filter(h => h && h.length > 0)
-    .sort((a, b) => b.length - a.length);
+
+  // 构建匹配表：原始表头 → 去后缀表头
+  const headerMap = {};
+  headers.filter(h => h && h.length > 0).forEach(h => {
+    headerMap[h] = h;
+    const stripped = stripHeaderSuffix(h);
+    if (stripped !== h) headerMap[stripped] = h;
+  });
+
+  // 按长度降序排列（包括去后缀的版本）
+  const sortedHeaders = Object.keys(headerMap).sort((a, b) => b.length - a.length);
+
   const aliases = {
-    '单号': '快递单号', '金额': '货值', '价格': '货值',
-    '日期': '登记日期', '数量': '正品数量'
+    '单号': '快递单号', '金额': '货值(元)', '价格': '货值(元)',
+    '日期': '登记日期', '数量': '正品数量',
+    '理赔': '理赔类型', '运费': '运费(元)', '货值': '货值(元)'
   };
+
+  // 理赔类型关键词
+  const claimTypes = ['丢件', '破损', '少件', '漏发', '错发', '退件', '拒收', '地址错误', '超区', '无人收件'];
+
   const tokens = description.split(/\s+/).filter(t => t.length > 0);
   let currentHeader = null;
   let valueParts = [];
@@ -275,16 +1942,20 @@ function ruleBasedExtract(headers, description) {
   for (const token of tokens) {
     let matchedHeader = null;
     let remainder = '';
+
+    // 1. 精确匹配表头
     for (const h of sortedHeaders) {
-      if (token === h) { matchedHeader = h; remainder = ''; break; }
+      if (token === h) { matchedHeader = headerMap[h]; remainder = ''; break; }
     }
+    // 2. 表头前缀匹配（如 "快递单号SF123" → 快递单号 + SF123）
     if (!matchedHeader) {
       for (const h of sortedHeaders) {
         if (token.length > h.length && token.startsWith(h)) {
-          matchedHeader = h; remainder = token.substring(h.length); break;
+          matchedHeader = headerMap[h]; remainder = token.substring(h.length); break;
         }
       }
     }
+    // 3. 别名匹配
     if (!matchedHeader) {
       for (const [alias, target] of Object.entries(aliases)) {
         if (headers.includes(target)) {
@@ -295,13 +1966,46 @@ function ruleBasedExtract(headers, description) {
         }
       }
     }
+    // 4. 分隔符匹配（如 "货值:399"）
     if (!matchedHeader) {
       for (const h of sortedHeaders) {
         const idx = token.indexOf(h);
         if (idx >= 0 && idx + h.length < token.length) {
           const after = token.substring(idx + h.length);
           if (/^[:：\-—=]/.test(after)) {
-            matchedHeader = h; remainder = after.replace(/^[:：\-—=]+/, ''); break;
+            matchedHeader = headerMap[h]; remainder = after.replace(/^[:：\-—=]+/, ''); break;
+          }
+        }
+      }
+    }
+    // 5. 特殊模式：理赔类型+金额（如 "丢件理赔54.9元"）
+    if (!matchedHeader) {
+      for (const ct of claimTypes) {
+        if (token.includes(ct)) {
+          const claimHeader = headers.find(h => h.includes('理赔类型'));
+          if (claimHeader) {
+            result[claimHeader] = ct;
+            // 提取剩余部分中的金额
+            const rest = token.replace(ct, '').replace('理赔', '');
+            const amountMatch = rest.match(/(\d+\.?\d*)/);
+            if (amountMatch) {
+              const amountHeader = headers.find(h => h.includes('货值'));
+              if (amountHeader) result[amountHeader] = amountMatch[1];
+            }
+            matchedHeader = null; // 已处理，不进入常规流程
+            break;
+          }
+        }
+      }
+    }
+    // 6. 特殊模式：字段名+数字（如 "运费7元" 或 "运费7"）
+    if (!matchedHeader) {
+      for (const h of sortedHeaders) {
+        const stripped = stripHeaderSuffix(headerMap[h] || h);
+        if (stripped.length >= 2 && token.startsWith(stripped) && token.length > stripped.length) {
+          const after = token.substring(stripped.length);
+          if (/^\d+\.?\d*元?$/.test(after)) {
+            matchedHeader = headerMap[h] || h; remainder = after; break;
           }
         }
       }
@@ -338,6 +2042,15 @@ async function extractRowData(llmConfig, headers, tableName, userDescription) {
   if (!raw) {
     raw = ruleBasedExtract(headers, userDescription);
     method = 'rule';
+  } else {
+    // LLM返回结果后，用rule-based补充空字段
+    const ruleResult = ruleBasedExtract(headers, userDescription);
+    for (const h of headers) {
+      if ((!raw[h] || String(raw[h]).trim() === '') && ruleResult[h] && String(ruleResult[h]).trim()) {
+        raw[h] = ruleResult[h];
+      }
+    }
+    method = 'llm+rule';
   }
   const values = headers.map(h => {
     const v = raw[h];
@@ -361,11 +2074,20 @@ function buildPreviewText(headers, values) {
 
 // --- Config ---
 async function loadConfig(env) {
+  let cfg;
   try {
     const stored = await env.CONFIG.get('config');
-    if (stored) return JSON.parse(stored);
-  } catch (e) {}
-  return DEFAULT_CONFIG;
+    if (stored) cfg = JSON.parse(stored);
+    else cfg = DEFAULT_CONFIG;
+  } catch (e) {
+    cfg = DEFAULT_CONFIG;
+  }
+  if (!cfg.wangdian) cfg.wangdian = { sid: '', key: '', secret: '', salt: '' };
+  if (env.WDT_SID) cfg.wangdian.sid = env.WDT_SID;
+  if (env.WDT_KEY) cfg.wangdian.key = env.WDT_KEY;
+  if (env.WDT_SECRET) cfg.wangdian.secret = env.WDT_SECRET;
+  if (env.WDT_SALT) cfg.wangdian.salt = env.WDT_SALT;
+  return cfg;
 }
 
 async function saveConfig(env, config) {
@@ -511,6 +2233,22 @@ export default {
       return jsonResponse({ status: 'ok', documents: config.documents.length });
     }
 
+    // GET /api/wdt/query
+    if (url.pathname === '/api/wdt/query' && request.method === 'GET') {
+      const q = url.searchParams.get('q') || '';
+      if (!q.trim()) return jsonResponse({ success: false, error: '查询内容不能为空' }, 400);
+      const wdtCfg = config.wangdian || {};
+      if (!wdtCfg.sid || !wdtCfg.key || !wdtCfg.secret || !wdtCfg.salt) {
+        return jsonResponse({ success: false, error: '旺店通API未配置，请在环境变量或配置文件中设置WDT_SID/WDT_KEY/WDT_SECRET/WDT_SALT' }, 400);
+      }
+      try {
+        const result = await queryWdtOrder(wdtCfg, q);
+        return jsonResponse(result);
+      } catch (err) {
+        return jsonResponse({ success: false, error: err.message }, 500);
+      }
+    }
+
     // GET /api/write/headers
     if (url.pathname === '/api/write/headers' && request.method === 'GET') {
       const docId = url.searchParams.get('docId') || config.defaultDocumentId;
@@ -560,6 +2298,47 @@ export default {
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
         const extractResult = await extractRowData(config.llm, headers, target.name, description);
+
+        // 旺店通自动匹配：从描述中提取物流单号，查询ERP获取订单信息
+        let wdtMatch = null;
+        const wdtCfg = config.wangdian || {};
+        if (wdtCfg.sid && wdtCfg.key && wdtCfg.secret && wdtCfg.salt) {
+          const tokens = description.split(/\s+/);
+          for (const token of tokens) {
+            const cleaned = token.replace(/^[^\w]+/, '').replace(/[^\w]+$/, '');
+            if (/^[A-Za-z0-9]{8,}$/.test(cleaned) && /\d/.test(cleaned)) {
+              try {
+                const wdtResult = await queryWdtOrder(wdtCfg, cleaned);
+                if (wdtResult.success && wdtResult.orders && wdtResult.orders.length > 0) {
+                  wdtMatch = wdtResult.orders[0];
+                  break;
+                }
+              } catch (e) { /* 忽略旺店通查询错误 */ }
+            }
+          }
+        }
+
+        // 合并旺店通数据到提取结果
+        if (wdtMatch) {
+          const wdtFields = {
+            '订单号': wdtMatch.src_tids,
+            '原始单号': wdtMatch.src_tids,
+            '快递单号': wdtMatch.logistics_no,
+            '物流单号': wdtMatch.logistics_no,
+            '店铺名称': wdtMatch.parsedShopName,
+            '店铺': wdtMatch.parsedShopName,
+            '平台': wdtMatch.platform
+          };
+          for (let i = 0; i < headers.length; i++) {
+            const h = headers[i];
+            if (wdtFields[h] && (!extractResult.values[i] || !extractResult.values[i].trim())) {
+              extractResult.values[i] = wdtFields[h];
+            }
+          }
+          extractResult.nonEmptyCount = extractResult.values.filter(v => v && v.trim()).length;
+          extractResult.missing = headers.filter((h, i) => !extractResult.values[i] || !extractResult.values[i].trim());
+        }
+
         if (extractResult.nonEmptyCount === 0) {
           return jsonResponse({ success: false, error: '未能从描述中提取到任何有效数据，请检查输入内容' }, 400);
         }
@@ -570,7 +2349,7 @@ export default {
         }
         return jsonResponse({
           success: true,
-          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length } }
+          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform } : null } }
         });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);

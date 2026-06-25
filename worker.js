@@ -1,6 +1,5 @@
 // --- HTML (embedded as template literal) ---
 const HTML = `<!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -611,7 +610,7 @@ const HTML = `<!DOCTYPE html>
   <div class="app">
     <header class="header">
       <div class="header-top">
-        <span class="header-tag">v2.1.0</span>
+        <span class="header-tag" id="appVersion">v2.1.0</span>
         <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="切换主题" style="margin-left:auto;background:var(--bg-hover);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all 0.2s;">🌙</button>
       </div>
       <h1>和旭电商售后小工具</h1>
@@ -1765,12 +1764,26 @@ const HTML = `<!DOCTYPE html>
     }
 
     loadDocSelector('queryDocSelect');
+
+    // 动态加载版本号
+    (async function loadVersion() {
+      try {
+        const resp = await fetch('/api/version');
+        const data = await resp.json();
+        if (data.success && data.data && data.data.version) {
+          const el = $('appVersion');
+          if (el) el.textContent = 'v' + data.data.version;
+        }
+      } catch (err) {
+        console.error('加载版本号失败:', err);
+      }
+    })();
   </script>
 </body>
 </html>
 
 `;
-// --- MD5 Implementation (pure JS, for Wangdian API signing) ---
+// --- MD5 Implementation// --- MD5 Implementation// --- MD5 Implementation (pure JS, for Wangdian API signing) ---
 function md5(str) {
   function rh(n) { var j, s = ''; for (j = 0; j <= 3; j++) s += ((n >> (j * 8 + 4)) & 0x0F).toString(16) + ((n >> (j * 8)) & 0x0F).toString(16); return s; }
   function ad(x, y) { var l = (x & 0xFFFF) + (y & 0xFFFF); var m = (x >> 16) + (y >> 16) + (l >> 16); return (m << 16) | (l & 0xFFFF); }
@@ -2578,6 +2591,11 @@ export default {
     // Static HTML
     if (url.pathname === '/' || url.pathname === '/index.html') {
       return new Response(HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // Version API
+    if (url.pathname === '/api/version' && request.method === 'GET') {
+      return jsonResponse({ success: true, data: { version: env.VERSION || '2.2.1' } });
     }
 
     // Settings password API

@@ -760,6 +760,21 @@ const HTML = `<!DOCTYPE html>
       <div class="card">
         <h2 class="card-title">系统设置</h2>
 
+        <div id="settingsPasswordGate" style="display:none">
+          <div class="settings-section">
+            <h3>访问验证</h3>
+            <p id="passwordGateDesc" style="color:var(--text-secondary);font-size:14px;margin-bottom:12px">请输入访问密码</p>
+            <div class="form-group">
+              <input type="password" id="settingsPasswordInput" placeholder="访问密码" onkeydown="if(event.key==='Enter') handlePasswordGate()"/>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="passwordGateBtn" onclick="handlePasswordGate()">进入设置</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="settingsContent" style="display:none">
+
         <div class="settings-section">
           <h3>腾讯文档配置</h3>
           <div class="form-group">
@@ -846,6 +861,7 @@ const HTML = `<!DOCTYPE html>
         <div class="btn-row">
           <button class="btn btn-primary" onclick="saveSettings()">保存配置</button>
         </div>
+        </div>
       </div>
     </section>
 
@@ -871,8 +887,14 @@ const HTML = `<!DOCTYPE html>
         </div>
         <div class="form-group">
           <label>
-            <input type="checkbox" id="modalDocDefault" style="width:auto;display:inline;margin-right:6px"/>
-            同时设为查询和登记默认文档
+            <input type="checkbox" id="modalDocQueryDefault" style="width:auto;display:inline;margin-right:6px"/>
+            设为查询 TAB 默认文档
+          </label>
+        </div>
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="modalDocWriteDefault" style="width:auto;display:inline;margin-right:6px"/>
+            设为登记 TAB 默认文档
           </label>
         </div>
         <div class="modal-actions">
@@ -1001,7 +1023,7 @@ const HTML = `<!DOCTYPE html>
       document.querySelector('.tab[data-view="' + viewName + '"]').classList.add('active');
       $('view-' + viewName).classList.add('active');
 
-      if (viewName === 'settings') loadSettings();
+      if (viewName === 'settings') showSettingsPasswordGate();
       if (viewName === 'query') loadDocSelector('queryDocSelect');
       if (viewName === 'write') loadDocSelector('writeDocSelect');
     }
@@ -1412,6 +1434,52 @@ const HTML = `<!DOCTYPE html>
       writePreviewData = null;
     }
 
+    async function showSettingsPasswordGate() {
+      try {
+        const resp = await fetch('/api/settings/password-status');
+        const data = await resp.json();
+        if (!data.success) return;
+        const hasPassword = data.data.hasPassword;
+
+        $('settingsContent').style.display = 'none';
+        $('settingsPasswordGate').style.display = 'block';
+        $('settingsPasswordInput').value = '';
+        $('passwordGateDesc').textContent = hasPassword ? '请输入访问密码' : '首次访问设置，请设置访问密码';
+        $('passwordGateBtn').textContent = hasPassword ? '进入设置' : '设置密码';
+        $('settingsPasswordInput').focus();
+      } catch (err) {
+        console.error('检查密码状态失败:', err);
+      }
+    }
+
+    async function handlePasswordGate() {
+      const password = $('settingsPasswordInput').value.trim();
+      if (!password) { showToast('请输入密码', 'error'); return; }
+
+      try {
+        const statusResp = await fetch('/api/settings/password-status');
+        const statusData = await statusResp.json();
+        const hasPassword = statusData.data && statusData.data.hasPassword;
+        const action = hasPassword ? 'verify' : 'set';
+
+        const resp = await fetch('/api/settings/password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action, password })
+        });
+        const data = await resp.json();
+        if (data.success) {
+          $('settingsPasswordGate').style.display = 'none';
+          $('settingsContent').style.display = 'block';
+          loadSettings();
+        } else {
+          showToast(data.error || '验证失败', 'error');
+        }
+      } catch (err) {
+        showToast('请求失败: ' + err.message, 'error');
+      }
+    }
+
     async function loadSettings() {
       try {
         const resp = await fetch('/api/config');
@@ -1505,7 +1573,8 @@ const HTML = `<!DOCTYPE html>
       $('modalDocFileId').value = '';
       $('modalDocKeywords').value = '客退,退货';
       $('modalDocTargets').value = '';
-      $('modalDocDefault').checked = false;
+      $('modalDocQueryDefault').checked = false;
+      $('modalDocWriteDefault').checked = false;
       $('docModal').classList.add('visible');
       $('modalDocName').focus();
     }
@@ -1518,7 +1587,8 @@ const HTML = `<!DOCTYPE html>
       $('modalDocFileId').value = doc.fileId || '';
       $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');
       $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\n');
-      $('modalDocDefault').checked = (doc.id === currentConfig.queryDefaultDocumentId || doc.id === currentConfig.writeDefaultDocumentId);
+      $('modalDocQueryDefault').checked = (doc.id === currentConfig.queryDefaultDocumentId);
+      $('modalDocWriteDefault').checked = (doc.id === currentConfig.writeDefaultDocumentId);
       $('docModal').classList.add('visible');
     }
 
@@ -1531,7 +1601,8 @@ const HTML = `<!DOCTYPE html>
       const fileId = $('modalDocFileId').value.trim();
       const keywords = $('modalDocKeywords').value.trim();
       const targetsStr = $('modalDocTargets').value.trim();
-      const isDefault = $('modalDocDefault').checked;
+      const isQueryDefault = $('modalDocQueryDefault').checked;
+      const isWriteDefault = $('modalDocWriteDefault').checked;
 
       if (!name) { showToast('请输入文档名称', 'error'); return; }
       if (!fileId) { showToast('请输入 File ID', 'error'); return; }
@@ -1564,10 +1635,16 @@ const HTML = `<!DOCTYPE html>
         }
       }
 
-      if (isDefault) {
-        const docId = docModalEditIdx >= 0 ? currentConfig.documents[docModalEditIdx].id : docData.id;
+      const docId = docModalEditIdx >= 0 ? currentConfig.documents[docModalEditIdx].id : docData.id;
+      if (isQueryDefault) {
         currentConfig.queryDefaultDocumentId = docId;
+      } else if (docModalEditIdx >= 0 && docId === currentConfig.queryDefaultDocumentId) {
+        currentConfig.queryDefaultDocumentId = '';
+      }
+      if (isWriteDefault) {
         currentConfig.writeDefaultDocumentId = docId;
+      } else if (docModalEditIdx >= 0 && docId === currentConfig.writeDefaultDocumentId) {
+        currentConfig.writeDefaultDocumentId = '';
       }
 
       closeDocModal();
@@ -2501,6 +2578,32 @@ export default {
     // Static HTML
     if (url.pathname === '/' || url.pathname === '/index.html') {
       return new Response(HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+    }
+
+    // Settings password API
+    if (url.pathname === '/api/settings/password-status' && request.method === 'GET') {
+      const hasPassword = !!(env.SETTINGS_PASSWORD && String(env.SETTINGS_PASSWORD).trim());
+      return jsonResponse({ success: true, data: { hasPassword } });
+    }
+
+    if (url.pathname === '/api/settings/password' && request.method === 'POST') {
+      const body = await request.json();
+      const action = body.action;
+      const password = String(body.password || '').trim();
+      if (action === 'set') {
+        return jsonResponse({ success: false, error: 'Cloudflare Workers 环境变量为只读。请通过 Cloudflare Workers 控制台 / secrets 设置 SETTINGS_PASSWORD，无法通过此接口设置密码。' }, 400);
+      }
+      if (action === 'verify') {
+        const current = env.SETTINGS_PASSWORD || '';
+        if (!current) {
+          return jsonResponse({ success: false, error: '尚未设置访问密码' }, 400);
+        }
+        if (password === String(current)) {
+          return jsonResponse({ success: true, message: '验证通过' });
+        }
+        return jsonResponse({ success: false, error: '密码错误' }, 401);
+      }
+      return jsonResponse({ success: false, error: '未知操作' }, 400);
     }
 
     // GET /api/config

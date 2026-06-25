@@ -1,6 +1,5 @@
 // --- HTML (embedded as template literal) ---
-const HTML = `
-<!DOCTYPE html>
+const HTML = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -422,6 +421,44 @@ const HTML = `
       font-style: italic;
     }
 
+    .preview-table td.editable-cell {
+      position: relative;
+      cursor: pointer;
+      min-width: 90px;
+      transition: background 0.15s;
+    }
+
+    .preview-table td.editable-cell:hover {
+      background: var(--bg-hover);
+    }
+
+    .preview-table td.editable-cell .edit-icon {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      opacity: 0;
+      transition: opacity 0.15s;
+      fill: var(--text-secondary);
+      pointer-events: none;
+    }
+
+    .preview-table td.editable-cell:hover .edit-icon {
+      opacity: 1;
+    }
+
+    .preview-table td.editable-cell .cell-editor {
+      width: 100%;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      padding: 6px 8px;
+      font: inherit;
+      font-size: 14px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
     .missing-fields {
       background: var(--warning-bg);
       border: 1px solid rgba(251, 191, 36, 0.2);
@@ -577,7 +614,7 @@ const HTML = `
         <button class="theme-toggle" id="themeToggleBtn" onclick="toggleTheme()" title="切换主题" style="margin-left:auto;background:var(--bg-hover);border:1px solid var(--border);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px;color:var(--text-secondary);transition:all 0.2s;">🌙</button>
       </div>
       <h1>和旭电商售后小工具</h1>
-      <p class="header-sub">查询 · 登记 · 设置 — 数据来源：<code>腾讯文档</code><code>旺店通</code></p>
+      <p class="header-sub">查询 · 登记 · 设置 — 数据来源：<code>腾讯文档</code>&nbsp;<code>旺店通</code></p>
     </header>
 
     <nav class="tabs">
@@ -1225,18 +1262,8 @@ const HTML = `
         const values = data.data.values;
 
         $('previewHeader').innerHTML = headers.map(h => '<th>' + esc(h) + '</th>').join('');
-        $('previewRow').innerHTML = values.map(v => {
-          if (!v || !v.trim()) return '<td class="empty-cell">(空)</td>';
-          return '<td>' + esc(v) + '</td>';
-        }).join('');
-
-        if (data.data.missing && data.data.missing.length > 0) {
-          const el = $('missingFields');
-          el.style.display = 'block';
-          el.textContent = '⚠ 以下字段未填写，建议补充: ' + data.data.missing.join(', ');
-        } else {
-          $('missingFields').style.display = 'none';
-        }
+        renderPreviewRow();
+        updateMissingFields();
 
         const d = data.data.debug;
         if (d) {
@@ -1263,6 +1290,74 @@ const HTML = `
         addLog('提取', '失败', '网络错误: ' + err.message);
       } finally {
         $('extractBtn').disabled = false;
+      }
+    }
+
+    function renderPreviewRow() {
+      if (!writePreviewData) return;
+      const values = writePreviewData.values;
+      const pencilIcon = '<svg class="edit-icon" viewBox="0 0 24 24" width="13" height="13"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+      $('previewRow').innerHTML = values.map((v, i) => {
+        const isEmpty = !v || !v.trim();
+        const display = isEmpty ? '(空)' : esc(v);
+        const cls = isEmpty ? 'empty-cell' : '';
+        return '<td class="editable-cell ' + cls + '" data-col="' + i + '" onclick="editPreviewCell(' + i + ')">' +
+          '<span class="cell-text">' + display + '</span>' + pencilIcon + '</td>';
+      }).join('');
+    }
+
+    function updateMissingFields() {
+      if (!writePreviewData) return;
+      const headers = writePreviewData.headers;
+      const values = writePreviewData.values;
+      const missing = headers.filter((h, i) => !values[i] || !values[i].trim());
+      const el = $('missingFields');
+      if (missing.length > 0) {
+        el.style.display = 'block';
+        el.textContent = '⚠ 以下字段未填写，建议补充: ' + missing.join(', ');
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    function editPreviewCell(colIndex) {
+      if (!writePreviewData) return;
+      const td = document.querySelector('#previewRow td[data-col="' + colIndex + '"]');
+      if (!td || td.querySelector('input')) return;
+      const currentValue = writePreviewData.values[colIndex] || '';
+      td.innerHTML = '<input type="text" class="cell-editor" value="' + esc(currentValue) + '" ' +
+        'onblur="savePreviewCell(' + colIndex + ', this.value)" ' +
+        'onkeydown="handlePreviewCellKey(event, ' + colIndex + ')" />';
+      const input = td.querySelector('input');
+      input.focus();
+      input.select();
+    }
+
+    function savePreviewCell(colIndex, value) {
+      if (!writePreviewData) return;
+      writePreviewData.values[colIndex] = value.trim();
+      renderPreviewCell(colIndex);
+      updateMissingFields();
+    }
+
+    function renderPreviewCell(colIndex) {
+      if (!writePreviewData) return;
+      const td = document.querySelector('#previewRow td[data-col="' + colIndex + '"]');
+      if (!td) return;
+      const v = writePreviewData.values[colIndex];
+      const isEmpty = !v || !v.trim();
+      const display = isEmpty ? '(空)' : esc(v);
+      const cls = isEmpty ? 'empty-cell' : '';
+      const pencilIcon = '<svg class="edit-icon" viewBox="0 0 24 24" width="13" height="13"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>';
+      td.className = 'editable-cell ' + cls;
+      td.innerHTML = '<span class="cell-text">' + display + '</span>' + pencilIcon;
+    }
+
+    function handlePreviewCellKey(e, colIndex) {
+      if (e.key === 'Enter') {
+        savePreviewCell(colIndex, e.target.value);
+      } else if (e.key === 'Escape') {
+        e.target.blur();
       }
     }
 
@@ -1582,7 +1677,6 @@ const HTML = `
 </body>
 </html>
 `;
-
 // --- MD5 Implementation (pure JS, for Wangdian API signing) ---
 function md5(str) {
   function rh(n) { var j, s = ''; for (j = 0; j <= 3; j++) s += ((n >> (j * 8 + 4)) & 0x0F).toString(16) + ((n >> (j * 8)) & 0x0F).toString(16); return s; }
@@ -1715,9 +1809,10 @@ async function findNextEmptyRow(mcpUrl, apiKey, sessionId, fileId, sheetId, star
   while (currentRow < maxRowCount) {
     const endRow = Math.min(currentRow + EMPTY_ROW_BATCH_SIZE, maxRowCount);
     const csv = await readSheetCsv(mcpUrl, apiKey, sessionId, fileId, sheetId, endRow, colCount, currentRow);
-    const lines = csv.split('\n').filter(l => l.trim());
-    for (let i = 0; i < lines.length; i++) {
-      const cells = parseCsvLine(lines[i]);
+    const allLines = csv.split('\n');
+    const expectedRows = endRow - currentRow;
+    for (let i = 0; i < Math.min(allLines.length, expectedRows); i++) {
+      const cells = parseCsvLine(allLines[i]);
       if (cells.every(c => !c || !c.trim())) {
         return currentRow + i;
       }
@@ -2492,7 +2587,8 @@ export default {
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
         const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
-        const lines = csv.split('\n').filter(l => l.trim());
+        const allLines = csv.split('\n');
+        const lines = allLines.filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
         // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
@@ -2527,7 +2623,8 @@ export default {
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
         const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
-        const lines = csv.split('\n').filter(l => l.trim());
+        const allLines = csv.split('\n');
+        const lines = allLines.filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
         const headers = parseCsvLine(lines[0]);
         // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
@@ -2551,10 +2648,12 @@ export default {
         if (extractResult.nonEmptyCount === 0) {
           return jsonResponse({ success: false, error: '未能从描述中提取到任何有效数据，请检查输入内容' }, 400);
         }
-        let emptyRowIndex = lines.length;
-        for (let i = 1; i < lines.length; i++) {
-          const cells = parseCsvLine(lines[i]);
-          if (cells.every(c => !c || !c.trim())) { emptyRowIndex = i; break; }
+        // 查找第一个空行时保留空行，避免跳过空行导致追加时间隔一行
+        let emptyRowIndex = allLines.length;
+        for (let i = 1; i < allLines.length; i++) {
+          const cells = parseCsvLine(allLines[i]);
+          const isEmpty = cells.every(c => !c || !c.trim());
+          if (isEmpty) { emptyRowIndex = i; break; }
         }
         return jsonResponse({
           success: true,

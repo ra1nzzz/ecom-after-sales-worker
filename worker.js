@@ -1,5 +1,6 @@
 // --- HTML (embedded as template literal) ---
 const HTML = `<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -780,9 +781,15 @@ const HTML = `<!DOCTYPE html>
                 <option value="deepseek">DeepSeek</option>
                 <option value="doubao">豆包 (火山引擎)</option>
                 <option value="qwen">通义千问</option>
+                <option value="stepfun">阶跃星辰</option>
                 <option value="ollama">Ollama (本地)</option>
                 <option value="openai">OpenAI</option>
+                <option value="custom">自定义</option>
               </select>
+            </div>
+            <div class="form-group" id="customProviderNameGroup" style="display:none">
+              <label>自定义服务商名</label>
+              <input type="text" id="cfgLlmCustomName" placeholder="例如 MyLLM"/>
             </div>
             <div class="form-group">
               <label>模型名称</label>
@@ -1270,7 +1277,7 @@ const HTML = `<!DOCTYPE html>
           $('debugInfo').style.display = 'block';
           let debugHtml = '识别方式: <span style="color:var(--accent)">' + esc(d.method) + '</span> | 耗时: ' + d.parseTime + 'ms | 非空字段: ' + d.nonEmptyCount + '/' + d.headerCount;
           if (d.wdtMatch) {
-            debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + ' 云仓=' + esc(d.wdtMatch.warehouse_no || '') + '</span>';
+            debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + ' 云仓=' + esc(d.wdtMatch.warehouse_name || d.wdtMatch.warehouse_no || '') + '</span>';
           }
           if (d.llmError) {
             debugHtml += ' | AI错误: <span style="color:var(--danger)">' + esc(d.llmError) + '</span>';
@@ -1417,9 +1424,11 @@ const HTML = `<!DOCTYPE html>
         $('cfgTencentUrl').value = currentConfig.tencentDocs.mcpUrl || '';
 
         $('cfgLlmProvider').value = currentConfig.llm.provider || 'deepseek';
+        $('cfgLlmCustomName').value = currentConfig.llm.customProviderName || '';
         $('cfgLlmModel').value = currentConfig.llm.model || '';
         $('cfgLlmKey').value = currentConfig.llm.apiKey || '';
         $('cfgLlmUrl').value = currentConfig.llm.baseUrl || '';
+        onLlmProviderChange();
 
         $('cfgCacheTtl').value = (currentConfig.cache.ttl || 300000) / 1000;
         $('cfgCacheRefresh').value = (currentConfig.cache.autoRefreshInterval || 1800000) / 1000;
@@ -1593,10 +1602,14 @@ const HTML = `<!DOCTYPE html>
 
     function onLlmProviderChange() {
       const provider = $('cfgLlmProvider').value;
+      const isCustom = provider === 'custom';
+      $('customProviderNameGroup').style.display = isCustom ? 'block' : 'none';
+
       const presets = {
         deepseek: { url: 'https://api.deepseek.com', model: 'deepseek-chat' },
         doubao: { url: 'https://ark.cn-beijing.volces.com/api/v3', model: 'doubao-1-5-pro-32k' },
         qwen: { url: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+        stepfun: { url: 'https://api.stepfun.com/v1', model: 'step-1-8k' },
         ollama: { url: 'http://localhost:11434/v1', model: 'qwen2.5:7b' },
         openai: { url: 'https://api.openai.com/v1', model: 'gpt-4o-mini' }
       };
@@ -1610,6 +1623,7 @@ const HTML = `<!DOCTYPE html>
     async function testLLM() {
       const llmConfig = {
         provider: $('cfgLlmProvider').value,
+        customProviderName: $('cfgLlmCustomName').value,
         apiKey: $('cfgLlmKey').value.includes('****') ? (currentConfig.llm.apiKey || '') : $('cfgLlmKey').value,
         baseUrl: $('cfgLlmUrl').value,
         model: $('cfgLlmModel').value
@@ -1643,6 +1657,7 @@ const HTML = `<!DOCTYPE html>
         },
         llm: {
           provider: $('cfgLlmProvider').value,
+          customProviderName: $('cfgLlmProvider').value === 'custom' ? $('cfgLlmCustomName').value : '',
           apiKey: $('cfgLlmKey').value,
           baseUrl: $('cfgLlmUrl').value,
           model: $('cfgLlmModel').value
@@ -1676,6 +1691,7 @@ const HTML = `<!DOCTYPE html>
   </script>
 </body>
 </html>
+
 `;
 // --- MD5 Implementation (pure JS, for Wangdian API signing) ---
 function md5(str) {
@@ -1725,7 +1741,7 @@ const PLATFORMS = ['京东','淘宝','天猫','拼多多','抖音','快手','小
 const FIELD_ALIASES = {'单号':'快递单号','金额':'货值(元)','价格':'货值(元)','日期':'登记日期','数量':'正品数量','理赔':'理赔类型','运费':'运费(元)','货值':'货值(元)'};
 const CLAIM_TYPES = ['丢件','破损','少件','漏发','错发','退件','拒收','地址错误','超区','无人收件'];
 const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
-const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform','云仓':'warehouse_no','仓库':'warehouse_no'};
+const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform','云仓':'warehouse_name','仓库':'warehouse_name'};
 const LOGISTICS_NO_REGEX = /^[A-Za-z0-9]{8,}$/;
 
 // --- MCP Client (Workers fetch) ---
@@ -2049,6 +2065,24 @@ async function queryWdtOrder(credentials, query) {
 }
 
 /**
+ * 查询仓库名称
+ */
+async function queryWarehouse(credentials, warehouseNo) {
+  if (!warehouseNo) return '';
+  try {
+    const result = await callWdtApi(credentials, 'setting.Warehouse.queryWarehouse', {
+      warehouse_no: warehouseNo
+    });
+    if (result.status === 0 && result.data && result.data.length > 0) {
+      return result.data[0].warehouse_name || warehouseNo;
+    }
+  } catch (err) {
+    console.error('[wdt] 查询仓库失败:', err.message);
+  }
+  return warehouseNo;
+}
+
+/**
  * 从描述文本中自动匹配旺店通订单
  * 遍历描述中的每个 token，提取可能的物流单号并查询旺店通，
  * 返回第一个匹配到的订单对象（或 null）。
@@ -2061,7 +2095,11 @@ async function autoMatchWdtOrder(credentials, description) {
       try {
         const wdtResult = await queryWdtOrder(credentials, cleaned);
         if (wdtResult.success && wdtResult.orders && wdtResult.orders.length > 0) {
-          return wdtResult.orders[0];
+          const order = wdtResult.orders[0];
+          if (order.warehouse_no) {
+            order.warehouse_name = await queryWarehouse(credentials, order.warehouse_no);
+          }
+          return order;
         }
       } catch (e) { /* 忽略旺店通查询错误 */ }
     }
@@ -2492,6 +2530,8 @@ export default {
         if (body.llm) {
           newConfig.llm = {
             provider: body.llm.provider || config.llm.provider,
+            customProviderName: body.llm.customProviderName !== undefined
+              ? body.llm.customProviderName : config.llm.customProviderName,
             apiKey: (body.llm.apiKey && !body.llm.apiKey.includes('****')) ? body.llm.apiKey : config.llm.apiKey,
             baseUrl: body.llm.baseUrl || config.llm.baseUrl,
             model: body.llm.model || config.llm.model
@@ -2658,7 +2698,7 @@ export default {
         }
         return jsonResponse({
           success: true,
-          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform, warehouse_no: wdtMatch.warehouse_no } : null } }
+          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform, warehouse_no: wdtMatch.warehouse_no, warehouse_name: wdtMatch.warehouse_name } : null } }
         });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);

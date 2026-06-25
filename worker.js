@@ -1270,7 +1270,7 @@ const HTML = `<!DOCTYPE html>
           $('debugInfo').style.display = 'block';
           let debugHtml = '识别方式: <span style="color:var(--accent)">' + esc(d.method) + '</span> | 耗时: ' + d.parseTime + 'ms | 非空字段: ' + d.nonEmptyCount + '/' + d.headerCount;
           if (d.wdtMatch) {
-            debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + '</span>';
+            debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + ' 云仓=' + esc(d.wdtMatch.warehouse_no || '') + '</span>';
           }
           if (d.llmError) {
             debugHtml += ' | AI错误: <span style="color:var(--danger)">' + esc(d.llmError) + '</span>';
@@ -1725,7 +1725,7 @@ const PLATFORMS = ['京东','淘宝','天猫','拼多多','抖音','快手','小
 const FIELD_ALIASES = {'单号':'快递单号','金额':'货值(元)','价格':'货值(元)','日期':'登记日期','数量':'正品数量','理赔':'理赔类型','运费':'运费(元)','货值':'货值(元)'};
 const CLAIM_TYPES = ['丢件','破损','少件','漏发','错发','退件','拒收','地址错误','超区','无人收件'];
 const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未付款',55:'已审核',95:'已发货',110:'已完成'};
-const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform'};
+const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform','云仓':'warehouse_no','仓库':'warehouse_no'};
 const LOGISTICS_NO_REGEX = /^[A-Za-z0-9]{8,}$/;
 
 // --- MCP Client (Workers fetch) ---
@@ -2037,6 +2037,7 @@ async function queryWdtOrder(credentials, query) {
       trade_time: o.trade_time || '',
       consign_time: o.consign_time || '',
       stockout_no: o.stockout_no || '',
+      warehouse_no: o.warehouse_no || '',
       goods_count: o.goods_count || 0,
       goods_amount: o.goods_amount || 0,
       receiver_area: o.receiver_area || '',
@@ -2657,7 +2658,7 @@ export default {
         }
         return jsonResponse({
           success: true,
-          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform } : null } }
+          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform, warehouse_no: wdtMatch.warehouse_no } : null } }
         });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);

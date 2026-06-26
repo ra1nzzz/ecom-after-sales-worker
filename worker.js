@@ -904,6 +904,18 @@ const HTML = `<!DOCTYPE html>
     </div>
 
     <!-- Delete Confirm Modal -->
+    <!-- Duplicate Detection Modal -->
+    <div class="modal-overlay" id="duplicateModal">
+      <div class="modal" style="max-width:700px">
+        <h2 class="modal-title" id="duplicateModalTitle">查重提示</h2>
+        <div id="duplicateModalBody" style="margin-bottom:16px"></div>
+        <div class="modal-actions">
+          <button class="btn btn-secondary" onclick="closeDuplicateModal()">取消</button>
+          <button class="btn btn-primary" id="duplicateConfirmBtn" onclick="confirmDuplicate()">确认</button>
+        </div>
+      </div>
+    </div>
+
     <div class="modal-overlay" id="deleteModal">
       <div class="modal" style="max-width:400px">
         <h2 class="modal-title">确认删除</h2>
@@ -1286,6 +1298,12 @@ const HTML = `<!DOCTYPE html>
 
         writePreviewData = data.data;
 
+        // 查重检测
+        if (data.data.duplicate) {
+          handleDuplicate(data.data.duplicate, data.data);
+          return; // 暂不显示预览面板，等待用户处理查重弹窗
+        }
+
         const headers = data.data.headers;
         const values = data.data.values;
 
@@ -1387,6 +1405,104 @@ const HTML = `<!DOCTYPE html>
       } else if (e.key === 'Escape') {
         e.target.blur();
       }
+    }
+
+    let duplicatePendingData = null;
+
+    function handleDuplicate(dup, fullData) {
+      duplicatePendingData = fullData;
+      const headers = fullData.headers;
+      const body = $('duplicateModalBody');
+
+      if (dup.type === 'overwrite') {
+        $('duplicateModalTitle').textContent = '该单号已完整登记，是否覆盖？';
+        $('duplicateConfirmBtn').textContent = '覆盖登记';
+        $('duplicateConfirmBtn').className = 'btn btn-danger';
+
+        let html = '<p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px">物流单号 <b>' + esc(dup.newValues[headers.findIndex(h => h === '快递单号' || h === '物流单号')] || '') + '</b> 已存在完整记录（第 ' + dup.existingRow + ' 行）。以下为字段对比：</p>';
+        html += '<div class="table-scroll"><table class="preview-table" style="font-size:12px"><thead><tr><th>字段</th><th>现有值</th><th>新值</th></tr></thead><tbody>';
+        for (let i = 0; i < headers.length; i++) {
+          const oldVal = (dup.existingValues[i] || '').trim();
+          const newVal = (dup.newValues[i] || '').trim();
+          if (oldVal !== newVal) {
+            html += '<tr style="background:var(--accent-dim)"><td><b>' + esc(headers[i]) + '</b></td><td>' + (oldVal ? esc(oldVal) : '<span style="color:var(--text-muted)">(空)</span>') + '</td><td>' + (newVal ? esc(newVal) : '<span style="color:var(--text-muted)">(空)</span>') + '</td></tr>';
+          } else {
+            html += '<tr><td>' + esc(headers[i]) + '</td><td>' + (oldVal ? esc(oldVal) : '<span style="color:var(--text-muted)">(空)</span>') + '</td><td>' + (newVal ? esc(newVal) : '<span style="color:var(--text-muted)">(空)</span>') + '</td></tr>';
+          }
+        }
+        html += '</tbody></table></div>';
+        if (dup.changedFields.length === 0) {
+          html += '<p style="color:var(--text-secondary);font-size:13px;margin-top:8px">新数据与现有记录完全一致，无需覆盖。</p>';
+        } else {
+          html += '<p style="color:var(--text-secondary);font-size:13px;margin-top:8px">有 ' + dup.changedFields.length + ' 个字段存在差异（已高亮）。</p>';
+        }
+        body.innerHTML = html;
+      } else if (dup.type === 'merge') {
+        $('duplicateModalTitle').textContent = '该单号已登记但信息不全，已自动补全';
+        $('duplicateConfirmBtn').textContent = '确认补全';
+        $('duplicateConfirmBtn').className = 'btn btn-primary';
+
+        let html = '<p style="color:var(--text-secondary);font-size:14px;margin-bottom:12px">物流单号 <b>' + esc(dup.newValues[headers.findIndex(h => h === '快递单号' || h === '物流单号')] || '') + '</b> 已存在记录（第 ' + dup.existingRow + ' 行），但有 ' + dup.emptyFieldIndices.length + ' 个字段为空。以下为补全预览：</p>';
+        if (dup.filledFields.length > 0) {
+          html += '<div class="table-scroll"><table class="preview-table" style="font-size:12px"><thead><tr><th>字段</th><th>现有值</th><th>补全值</th></tr></thead><tbody>';
+          for (const f of dup.filledFields) {
+            html += '<tr style="background:var(--accent-dim)"><td><b>' + esc(f.header) + '</b></td><td><span style="color:var(--text-muted)">(空)</span></td><td>' + esc(f.newValue) + '</td></tr>';
+          }
+          html += '</tbody></table></div>';
+        } else {
+          html += '<p style="color:var(--text-secondary);font-size:13px">本次提交未包含可补全的字段。</p>';
+        }
+        body.innerHTML = html;
+      }
+
+      $('duplicateModal').classList.add('visible');
+    }
+
+    function confirmDuplicate() {
+      $('duplicateModal').classList.remove('visible');
+      if (!duplicatePendingData) return;
+
+      // 恢复预览面板显示
+      const headers = duplicatePendingData.headers;
+      const values = duplicatePendingData.values;
+
+      $('previewHeader').innerHTML = headers.map(h => '<th>' + esc(h) + '</th>').join('');
+      renderPreviewRow();
+      updateMissingFields();
+
+      const d = duplicatePendingData.debug;
+      if (d) {
+        $('debugInfo').style.display = 'block';
+        let debugHtml = '识别方式: <span style="color:var(--accent)">' + esc(d.method) + '</span> | 耗时: ' + d.parseTime + 'ms | 非空字段: ' + d.nonEmptyCount + '/' + d.headerCount;
+        if (d.wdtMatch) {
+          debugHtml += '<br><span style="color:var(--accent)">旺店通匹配: 原始单号=' + esc(d.wdtMatch.src_tids || '') + ' 物流单号=' + esc(d.wdtMatch.logistics_no || '') + ' 店铺=' + esc(d.wdtMatch.shop_name || '') + ' 平台=' + esc(d.wdtMatch.platform || '') + ' 云仓=' + esc(d.wdtMatch.warehouse_name || d.wdtMatch.warehouse_no || '') + '</span>';
+        }
+        if (d.llmError) {
+          debugHtml += ' | AI错误: <span style="color:var(--danger)">' + esc(d.llmError) + '</span>';
+        }
+        $('debugInfo').innerHTML = debugHtml;
+      } else {
+        $('debugInfo').style.display = 'none';
+      }
+
+      $('previewPanel').style.display = 'block';
+
+      const dup = duplicatePendingData.duplicate;
+      if (dup && dup.type === 'overwrite') {
+        showToast('已应用覆盖模式，请点击确认登记', 'success');
+      } else if (dup && dup.type === 'merge') {
+        showToast('已自动补全缺失字段，请确认登记', 'success');
+      }
+
+      duplicatePendingData = null;
+    }
+
+    function closeDuplicateModal() {
+      $('duplicateModal').classList.remove('visible');
+      duplicatePendingData = null;
+      writePreviewData = null;
+      $('extractBtn').disabled = false;
+      showToast('已取消登记', 'info');
     }
 
     async function doWrite() {
@@ -2818,9 +2934,105 @@ export default {
           const isEmpty = cells.every(c => !c || !c.trim());
           if (isEmpty) { emptyRowIndex = i; break; }
         }
+
+        // --- 查重检测 ---
+        // 找到物流单号列索引
+        const logisticsColIdx = headers.findIndex(h => {
+          const name = (h || '').trim();
+          return name === '快递单号' || name === '物流单号';
+        });
+
+        let duplicateInfo = null;
+        if (logisticsColIdx >= 0) {
+          const newLogisticsNo = (extractResult.values[logisticsColIdx] || '').trim();
+          if (newLogisticsNo) {
+            // 在已有行中搜索匹配的物流单号
+            for (let i = 1; i < allLines.length; i++) {
+              const rowCells = parseCsvLine(allLines[i]);
+              const existingNo = (rowCells[logisticsColIdx] || '').trim();
+              if (existingNo === newLogisticsNo) {
+                // 补齐 rowCells 到 headers 长度
+                while (rowCells.length < headers.length) rowCells.push('');
+                const existingValues = headers.map((_, idx) => rowCells[idx] || '');
+
+                // 判断是否信息完整（排除"备注"列）
+                const emptyFieldIndices = [];
+                for (let j = 0; j < headers.length; j++) {
+                  const headerName = (headers[j] || '').trim();
+                  const isRemark = headerName === '备注' || headerName === 'remark';
+                  const val = (existingValues[j] || '').trim();
+                  if (!val && !isRemark) {
+                    emptyFieldIndices.push(j);
+                  }
+                }
+
+                const isComplete = emptyFieldIndices.length === 0;
+
+                if (isComplete) {
+                  // Case 1: 已完整登记，提示是否覆盖
+                  duplicateInfo = {
+                    type: 'overwrite',
+                    existingRow: i,
+                    existingValues: existingValues,
+                    newValues: extractResult.values.slice(),
+                    changedFields: []
+                  };
+                  // 找出有差异的字段
+                  for (let j = 0; j < headers.length; j++) {
+                    const oldVal = (existingValues[j] || '').trim();
+                    const newVal = (extractResult.values[j] || '').trim();
+                    if (oldVal !== newVal) {
+                      duplicateInfo.changedFields.push({
+                        col: j,
+                        header: headers[j],
+                        oldValue: existingValues[j] || '',
+                        newValue: extractResult.values[j] || ''
+                      });
+                    }
+                  }
+                } else {
+                  // Case 2: 登记不全，自动补全空缺字段
+                  const mergedValues = existingValues.slice();
+                  const filledFields = [];
+                  for (let j = 0; j < headers.length; j++) {
+                    const existingVal = (existingValues[j] || '').trim();
+                    const newVal = (extractResult.values[j] || '').trim();
+                    if (!existingVal && newVal) {
+                      mergedValues[j] = newVal;
+                      filledFields.push({
+                        col: j,
+                        header: headers[j],
+                        oldValue: '',
+                        newValue: newVal
+                      });
+                    }
+                  }
+                  duplicateInfo = {
+                    type: 'merge',
+                    existingRow: i,
+                    existingValues: existingValues,
+                    newValues: extractResult.values.slice(),
+                    mergedValues: mergedValues,
+                    filledFields: filledFields,
+                    emptyFieldIndices: emptyFieldIndices
+                  };
+                }
+                break; // 找到第一个匹配即停止
+              }
+            }
+          }
+        }
+
+        // 如果查重命中，使用已有行作为目标行
+        const finalTargetRow = duplicateInfo ? duplicateInfo.existingRow : emptyRowIndex;
+        // 如果是合并模式，使用合并后的值
+        const finalValues = (duplicateInfo && duplicateInfo.type === 'merge')
+          ? duplicateInfo.mergedValues
+          : extractResult.values;
+
         return jsonResponse({
           success: true,
-          data: { headers: headers, values: extractResult.values, missing: extractResult.missing, targetRow: emptyRowIndex, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, extractResult.values), debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform, warehouse_no: wdtMatch.warehouse_no, warehouse_name: wdtMatch.warehouse_name } : null } }
+          data: { headers: headers, values: finalValues, missing: extractResult.missing, targetRow: finalTargetRow, sheetName: sheet.sheet_name, sheetId: sheet.sheet_id, targetFileId: targetFileId, preview: buildPreviewText(headers, finalValues), duplicate: duplicateInfo, debug: { method: extractResult.method, parseTime: extractResult.parseTime, llmRaw: extractResult.raw, llmError: extractResult.llmError, nonEmptyCount: extractResult.nonEmptyCount, headerCount: headers.length, totalLines: lines.length, wdtMatch: wdtMatch ? { src_tids: wdtMatch.src_tids, logistics_no: wdtMatch.logistics_no, shop_name: wdtMatch.shop_name, platform: wdtMatch.platform, warehouse_no: wdtMatch.warehouse_no, warehouse_name: wdtMatch.warehouse_name } : null } }
         });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);

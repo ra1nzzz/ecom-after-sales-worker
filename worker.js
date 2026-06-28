@@ -1701,7 +1701,7 @@ const HTML = `<!DOCTYPE html>
       $('modalDocName').value = doc.name || '';
       $('modalDocFileId').value = doc.fileId || '';
       $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');
-      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\n');
+      $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\\n');
       $('modalDocQueryDefault').checked = (doc.id === currentConfig.queryDefaultDocumentId);
       $('modalDocWriteDefault').checked = (doc.id === currentConfig.writeDefaultDocumentId);
       $('docModal').classList.add('visible');
@@ -1722,7 +1722,7 @@ const HTML = `<!DOCTYPE html>
       if (!name) { showToast('请输入文档名称', 'error'); return; }
       if (!fileId) { showToast('请输入 File ID', 'error'); return; }
 
-      const writeTargets = targetsStr ? targetsStr.split('\n').filter(s => s.trim()).map((s, i) => {
+      const writeTargets = targetsStr ? targetsStr.split('\\n').filter(s => s.trim()).map((s, i) => {
         const parts = s.split('|').map(p => p.trim());
         return {
           id: 'target' + i,

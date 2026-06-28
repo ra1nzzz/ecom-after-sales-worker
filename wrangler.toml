@@ -1,0 +1,17 @@
+name = "ecomtools"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# 路由配置（自定义域名）
+routes = [
+  { pattern = "ecomtools.ytaiv.com/*", zone_name = "ytaiv.com" }
+]
+
+# KV 命名空间绑定
+[[kv_namespaces]]
+binding = "CONFIG"
+id = "82268819c26047dc9dcf2a9e29b30bb0"
+
+# 环境变量（只读，敏感信息通过 secrets 设置）
+[vars]
+VERSION = "2.3.0"

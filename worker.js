@@ -2712,7 +2712,7 @@ export default {
 
     // Version API
     if (url.pathname === '/api/version' && request.method === 'GET') {
-      return jsonResponse({ success: true, data: { version: env.VERSION || '2.2.1' } });
+      return jsonResponse({ success: true, data: { version: env.VERSION || '2.3.0' } });
     }
 
     // Settings password API

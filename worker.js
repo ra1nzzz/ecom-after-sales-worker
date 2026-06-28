@@ -2707,7 +2707,12 @@ export default {
 
     // Static HTML
     if (url.pathname === '/' || url.pathname === '/index.html') {
-      return new Response(HTML, { headers: { 'Content-Type': 'text/html; charset=utf-8' } });
+      return new Response(HTML, {
+        headers: {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache, no-store, must-revalidate'
+        }
+      });
     }
 
     // Version API

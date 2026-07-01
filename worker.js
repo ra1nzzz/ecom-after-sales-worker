@@ -787,6 +787,38 @@ const HTML = `<!DOCTYPE html>
         </div>
 
         <div class="settings-section">
+          <h3>飞书配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>App ID</label>
+              <input type="text" id="cfgFeishuAppId" placeholder="飞书 App ID"/>
+            </div>
+            <div class="form-group">
+              <label>App Secret</label>
+              <input type="password" id="cfgFeishuAppSecret" placeholder="飞书 App Secret"/>
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h3>金山文档配置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>App ID</label>
+              <input type="text" id="cfgJinshanAppId" placeholder="金山文档 App ID"/>
+            </div>
+            <div class="form-group">
+              <label>App Key</label>
+              <input type="password" id="cfgJinshanAppKey" placeholder="金山文档 App Key"/>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Access Token</label>
+            <input type="password" id="cfgJinshanAccessToken" placeholder="金山文档 Access Token"/>
+          </div>
+        </div>
+
+        <div class="settings-section">
           <h3>LLM 配置</h3>
           <div class="form-row">
             <div class="form-group">
@@ -873,8 +905,16 @@ const HTML = `<!DOCTYPE html>
           <input type="text" id="modalDocName" placeholder="如：和旭电商退货登记"/>
         </div>
         <div class="form-group">
-          <label>腾讯文档 File ID</label>
-          <input type="text" id="modalDocFileId" placeholder="文档 ID"/>
+          <label>文档服务商</label>
+          <select id="modalDocProvider" onchange="onDocProviderChange()">
+            <option value="tencent">腾讯文档</option>
+            <option value="feishu">飞书</option>
+            <option value="jinshan">金山文档</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="modalDocFileIdLabel">腾讯文档 File ID</label>
+          <input type="text" id="modalDocFileId" placeholder="从文档URL中获取"/>
         </div>
         <div class="form-group">
           <label>读取 Sheet 关键词（逗号分隔）</label>
@@ -1604,7 +1644,12 @@ const HTML = `<!DOCTYPE html>
         currentConfig = data.data;
 
         $('cfgTencentKey').value = currentConfig.tencentDocs.apiKey || '';
-        $('cfgTencentUrl').value = currentConfig.tencentDocs.mcpUrl || '';
+      $('cfgTencentUrl').value = currentConfig.tencentDocs.mcpUrl || '';
+      $('cfgFeishuAppId').value = (currentConfig.feishuDocs && currentConfig.feishuDocs.appId) || '';
+      $('cfgFeishuAppSecret').value = (currentConfig.feishuDocs && currentConfig.feishuDocs.appSecret) || '';
+      $('cfgJinshanAppId').value = (currentConfig.jinshanDocs && currentConfig.jinshanDocs.appId) || '';
+      $('cfgJinshanAppKey').value = (currentConfig.jinshanDocs && currentConfig.jinshanDocs.appKey) || '';
+      $('cfgJinshanAccessToken').value = (currentConfig.jinshanDocs && currentConfig.jinshanDocs.accessToken) || '';
 
         $('cfgLlmProvider').value = currentConfig.llm.provider || 'deepseek';
         $('cfgLlmCustomName').value = currentConfig.llm.customProviderName || '';
@@ -1666,7 +1711,10 @@ const HTML = `<!DOCTYPE html>
         item.className = 'doc-list-item';
         const isQueryDefault = doc.id === currentConfig.queryDefaultDocumentId;
         const isWriteDefault = doc.id === currentConfig.writeDefaultDocumentId;
+        const providerLabels = { tencent: '腾讯文档', feishu: '飞书', jinshan: '金山文档' };
+        const provider = doc.provider || 'tencent';
         const tags = [];
+        tags.push('<span class="tag">' + (providerLabels[provider] || provider) + '</span>');
         if (isQueryDefault) tags.push('<span class="tag">查询默认</span>');
         if (isWriteDefault) tags.push('<span class="tag">登记默认</span>');
         item.innerHTML =
@@ -1685,11 +1733,13 @@ const HTML = `<!DOCTYPE html>
       docModalEditIdx = -1;
       $('docModalTitle').textContent = '添加文档';
       $('modalDocName').value = '';
+      $('modalDocProvider').value = 'tencent';
       $('modalDocFileId').value = '';
       $('modalDocKeywords').value = '客退,退货';
       $('modalDocTargets').value = '';
       $('modalDocQueryDefault').checked = false;
       $('modalDocWriteDefault').checked = false;
+      onDocProviderChange();
       $('docModal').classList.add('visible');
       $('modalDocName').focus();
     }
@@ -1699,16 +1749,28 @@ const HTML = `<!DOCTYPE html>
       docModalEditIdx = idx;
       $('docModalTitle').textContent = '编辑文档';
       $('modalDocName').value = doc.name || '';
+      $('modalDocProvider').value = doc.provider || 'tencent';
       $('modalDocFileId').value = doc.fileId || '';
       $('modalDocKeywords').value = (doc.readSheetKeywords || []).join(',');
       $('modalDocTargets').value = (doc.writeTargets || []).map(t => t.name + '|' + t.sheetName).join('\\n');
       $('modalDocQueryDefault').checked = (doc.id === currentConfig.queryDefaultDocumentId);
       $('modalDocWriteDefault').checked = (doc.id === currentConfig.writeDefaultDocumentId);
+      onDocProviderChange();
       $('docModal').classList.add('visible');
     }
 
     function closeDocModal() {
       $('docModal').classList.remove('visible');
+    }
+
+    function onDocProviderChange() {
+      const provider = $('modalDocProvider').value;
+      const label = $('modalDocFileIdLabel');
+      const input = $('modalDocFileId');
+      const labelMap = { tencent: '腾讯文档 File ID', feishu: '飞书表格 Token', jinshan: '金山文档 File ID' };
+      const hintMap = { tencent: '从腾讯文档 URL 中获取', feishu: '从飞书表格 URL 中获取', jinshan: '从金山文档 URL 中获取' };
+      if (label) label.textContent = labelMap[provider] || 'File ID';
+      if (input) input.placeholder = hintMap[provider] || '';
     }
 
     function saveDocModal() {
@@ -1733,6 +1795,7 @@ const HTML = `<!DOCTYPE html>
 
       const docData = {
         name: name,
+        provider: $('modalDocProvider').value || 'tencent',
         fileId: fileId,
         readSheetKeywords: keywords ? keywords.split(',').map(s => s.trim()).filter(Boolean) : ['客退', '退货'],
         writeTargets: writeTargets
@@ -1848,6 +1911,15 @@ const HTML = `<!DOCTYPE html>
           apiKey: $('cfgTencentKey').value,
           mcpUrl: $('cfgTencentUrl').value
         },
+        feishuDocs: {
+          appId: $('cfgFeishuAppId').value,
+          appSecret: $('cfgFeishuAppSecret').value
+        },
+        jinshanDocs: {
+          appId: $('cfgJinshanAppId').value,
+          appKey: $('cfgJinshanAppKey').value,
+          accessToken: $('cfgJinshanAccessToken').value
+        },
         llm: {
           provider: $('cfgLlmProvider').value,
           customProviderName: $('cfgLlmProvider').value === 'custom' ? $('cfgLlmCustomName').value : '',
@@ -1935,7 +2007,7 @@ function md5(str) {
   return rh(a)+rh(b)+rh(c)+rh(d);
 }
 
-const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"queryDefaultDocumentId":"doc_demo","writeDefaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"","mcpUrl":"https://docs.qq.com/openapi/mcp"},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
+const DEFAULT_CONFIG = {"documents":[{"id":"doc_demo","name":"电商售后DEMO演示","fileId":"ZBTKrbvmhXBq","readSheetKeywords":["客退","退货","理赔","换货","退款","工作表"],"writeTargets":[{"id":"target0","name":"客退登记表","sheetName":"工作表1"}]},{"name":"快递理赔登记表","fileId":"DWnhndXZoREdQSUJV","readSheetKeywords":["理赔","快递"],"writeTargets":[{"id":"target0","name":"快递理赔登记表","sheetName":"工作表1"}],"id":"doc1782201419594"}],"queryDefaultDocumentId":"doc_demo","writeDefaultDocumentId":"doc_demo","tencentDocs":{"apiKey":"","mcpUrl":"https://docs.qq.com/openapi/mcp"},"feishuDocs":{"appId":"","appSecret":""},"jinshanDocs":{"appId":"","appKey":"","accessToken":""},"llm":{"provider":"deepseek","apiKey":"","baseUrl":"https://api.deepseek.com","model":"deepseek-chat"},"wangdian":{"sid":"","key":"","secret":"","salt":""},"cache":{"ttl":300000,"autoRefreshInterval":1800000}};
 
 // 全局常量
 const MAX_DESCRIPTION_LENGTH = 5000; // LLM 提取描述的最大字符数
@@ -1951,7 +2023,37 @@ const TRADE_STATUS_MAP = {4:'线下退款',5:'已取消',6:'待审核',10:'未�
 const WDT_FIELD_MAP = {'订单号':'src_tids','原始单号':'src_tids','快递单号':'logistics_no','物流单号':'logistics_no','店铺名称':'parsedShopName','店铺':'parsedShopName','平台':'platform','云仓':'warehouse_name','仓库':'warehouse_name'};
 const LOGISTICS_NO_REGEX = /^[A-Za-z0-9]{8,}$/;
 
-// --- MCP Client (Workers fetch) ---
+// --- Web Crypto helpers (for Jinshan KSO-1 signing) ---
+async function hmacSha256Base64(key, data) {
+  const enc = new TextEncoder();
+  const cryptoKey = await crypto.subtle.importKey('raw', enc.encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)));
+}
+
+async function sha256Hex(data) {
+  const enc = new TextEncoder();
+  const hash = await crypto.subtle.digest('SHA-256', enc.encode(data));
+  return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// --- Tencent Docs Adapter (MCP, Workers fetch) ---
+const tencentDocStates = new Map();
+
+function tencentGetDocState(fileId) {
+  if (!tencentDocStates.has(fileId)) {
+    tencentDocStates.set(fileId, { mcpSessionId: null, cachedData: null, cacheTimestamp: 0, cacheLoading: false });
+  }
+  return tencentDocStates.get(fileId);
+}
+
+function tencentClearCache(fileId) {
+  const state = tencentGetDocState(fileId);
+  state.cachedData = null;
+  state.cacheTimestamp = 0;
+  state.mcpSessionId = null;
+}
+
 async function callMcpApi(mcpUrl, apiKey, method, params, sessionId) {
   const headers = { 'Content-Type': 'application/json', 'Authorization': apiKey };
   if (sessionId) headers['Mcp-Session-Id'] = sessionId;
@@ -1985,9 +2087,9 @@ async function initMcpSession(mcpUrl, apiKey) {
   return sid;
 }
 
-async function callToolWithSession(mcpUrl, apiKey, sessionId, toolName, args) {
-  const { result } = await callMcpApi(mcpUrl, apiKey, 'tools/call', { name: toolName, arguments: args }, sessionId);
-  return result;
+async function callTool(mcpUrl, apiKey, sessionId, toolName, args) {
+  const { result, sessionId: newSessionId } = await callMcpApi(mcpUrl, apiKey, 'tools/call', { name: toolName, arguments: args }, sessionId);
+  return { result, sessionId: newSessionId };
 }
 
 function extractText(toolResult) {
@@ -2006,8 +2108,16 @@ function extractText(toolResult) {
   return text;
 }
 
-async function getSheetList(mcpUrl, apiKey, sessionId, fileId) {
-  const result = await callToolWithSession(mcpUrl, apiKey, sessionId, 'sheet.get_sheet_info', { file_id: fileId });
+async function tencentInit(providerConfig, state) {
+  const { mcpUrl, apiKey } = providerConfig;
+  if (state.mcpSessionId) return;
+  state.mcpSessionId = await initMcpSession(mcpUrl, apiKey);
+}
+
+async function tencentGetSheetList(providerConfig, state, fileId) {
+  const { mcpUrl, apiKey } = providerConfig;
+  const { result, sessionId } = await callTool(mcpUrl, apiKey, state.mcpSessionId, 'sheet.get_sheet_info', { file_id: fileId });
+  state.mcpSessionId = sessionId;
   const text = extractText(result);
   try {
     const parsed = JSON.parse(text);
@@ -2016,34 +2126,48 @@ async function getSheetList(mcpUrl, apiKey, sessionId, fileId) {
   return [];
 }
 
-async function readSheetCsv(mcpUrl, apiKey, sessionId, fileId, sheetId, rowCount, colCount, startRow = 0) {
-  const result = await callToolWithSession(mcpUrl, apiKey, sessionId, 'sheet.get_cell_data', {
+async function tencentReadSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow = 0) {
+  const { mcpUrl, apiKey } = providerConfig;
+  const { result, sessionId } = await callTool(mcpUrl, apiKey, state.mcpSessionId, 'sheet.get_cell_data', {
     file_id: fileId, sheet_id: sheetId,
     start_row: Math.max(0, startRow), end_row: rowCount,
     start_col: 0, end_col: Math.min(colCount, MAX_COL_COUNT),
     return_csv: true
   });
+  state.mcpSessionId = sessionId;
   return extractText(result);
 }
 
-// 从 startRow 开始查找第一个全空行，用于追加写入
-async function findNextEmptyRow(mcpUrl, apiKey, sessionId, fileId, sheetId, startRow, colCount, maxRowCount) {
-  let currentRow = startRow;
-  while (currentRow < maxRowCount) {
-    const endRow = Math.min(currentRow + EMPTY_ROW_BATCH_SIZE, maxRowCount);
-    const csv = await readSheetCsv(mcpUrl, apiKey, sessionId, fileId, sheetId, endRow, colCount, currentRow);
-    const allLines = csv.split('\n');
-    const expectedRows = endRow - currentRow;
-    for (let i = 0; i < Math.min(allLines.length, expectedRows); i++) {
-      const cells = parseCsvLine(allLines[i]);
-      if (cells.every(c => !c || !c.trim())) {
-        return currentRow + i;
-      }
-    }
-    currentRow += EMPTY_ROW_BATCH_SIZE;
-  }
-  return maxRowCount;
+async function tencentWriteRow(providerConfig, fileId, sheetId, startRow, values) {
+  const { mcpUrl, apiKey } = providerConfig;
+  const state = tencentGetDocState(fileId);
+  await tencentInit(providerConfig, state);
+  // 腾讯文档 sheet.set_range_value 接口中 row/col 均为 0-based
+  const cellValues = values.map((val, idx) => ({
+    row: startRow,
+    col: idx,
+    value_type: 'STRING',
+    string_value: String(val)
+  }));
+  const { result, sessionId } = await callTool(mcpUrl, apiKey, state.mcpSessionId, 'sheet.set_range_value', {
+    file_id: fileId, sheet_id: sheetId, values: cellValues
+  });
+  state.mcpSessionId = sessionId;
+  const text = extractText(result);
+  try {
+    const parsed = JSON.parse(text);
+    return { updateNum: parsed.update_num || cellValues.length };
+  } catch (e) { return { updateNum: cellValues.length }; }
 }
+
+const tencentAdapter = {
+  init: tencentInit,
+  getSheetList: tencentGetSheetList,
+  readSheetCsv: tencentReadSheetCsv,
+  writeRow: tencentWriteRow,
+  getDocState: tencentGetDocState,
+  clearCache: tencentClearCache
+};
 
 function parseCsvLine(line) {
   const cells = [];
@@ -2096,55 +2220,535 @@ function parseSheetCsv(csvText, sheetName) {
   return records;
 }
 
-async function fetchData(docConfig, tencentDocsConfig) {
-  const sid = await initMcpSession(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey);
-  const sheets = await getSheetList(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sid, docConfig.fileId);
-  const keywords = docConfig.readSheetKeywords || ['客退', '退货'];
-  const dataSheets = sheets.filter(sheet => keywords.some(kw => sheet.sheet_name.includes(kw)));
-
-  // 并行读取所有匹配的 sheet，提升多表文档的加载速度
-  const results = await Promise.allSettled(
-    dataSheets.map(sheet =>
-      readSheetCsv(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sid, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count)
-        .then(csv => parseSheetCsv(csv, sheet.sheet_name))
-    )
-  );
-
-  const allRecords = [];
-  for (let i = 0; i < results.length; i++) {
-    if (results[i].status === 'fulfilled') {
-      allRecords.push(...results[i].value);
-    } else if (results[i].status === 'rejected') {
-      console.error('读取失败 [' + dataSheets[i].sheet_name + ']: ' + (results[i].reason && results[i].reason.message));
-    }
-  }
-  return allRecords;
-}
-
 function searchRecords(records, query) {
   if (!query || query.trim() === '') return [];
   const q = query.trim().toLowerCase();
   return records.filter(r => (r['快递单号'] || '').toLowerCase().includes(q));
 }
 
-async function writeRow(tencentDocsConfig, sessionId, fileId, sheetId, startRow, values) {
-  // 腾讯文档 sheet.set_range_value 接口中：
-  // - row 为 0-based（从 0 开始）
-  // - col 为 0-based（从 0 开始）
-  const cellValues = values.map((val, idx) => ({
-    row: startRow,
-    col: idx,
-    value_type: 'STRING',
-    string_value: String(val)
-  }));
-  const result = await callToolWithSession(tencentDocsConfig.mcpUrl, tencentDocsConfig.apiKey, sessionId, 'sheet.set_range_value', {
-    file_id: fileId, sheet_id: sheetId, values: cellValues
-  });
-  const text = extractText(result);
+// --- Generic fetchData (provider-agnostic, works with all adapters) ---
+async function sharedFetchData(adapter, docConfig, providerConfig, cacheTTL) {
+  const state = adapter.getDocState(docConfig.fileId);
+  const now = Date.now();
+
+  if (state.cachedData && (now - state.cacheTimestamp) < cacheTTL) {
+    return state.cachedData;
+  }
+
+  if (state.cacheLoading) {
+    if (state.cachedData) return state.cachedData;
+  }
+
+  state.cacheLoading = true;
   try {
-    const parsed = JSON.parse(text);
-    return { updateNum: parsed.update_num || cellValues.length };
-  } catch (e) { return { updateNum: cellValues.length }; }
+    if (adapter.init) await adapter.init(providerConfig, state);
+    const sheets = await adapter.getSheetList(providerConfig, state, docConfig.fileId);
+
+    const keywords = docConfig.readSheetKeywords || ['客退', '退货'];
+    const dataSheets = sheets.filter(sheet => keywords.some(kw => sheet.sheet_name.includes(kw)));
+
+    const results = await Promise.allSettled(
+      dataSheets.map(sheet =>
+        adapter.readSheetCsv(providerConfig, state, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count)
+          .then(csv => parseSheetCsv(csv, sheet.sheet_name))
+      )
+    );
+
+    const allRecords = [];
+    for (let i = 0; i < results.length; i++) {
+      if (results[i].status === 'fulfilled') {
+        allRecords.push(...results[i].value);
+      } else if (results[i].status === 'rejected') {
+        console.error('读取失败 [' + dataSheets[i].sheet_name + ']: ' + (results[i].reason && results[i].reason.message));
+      }
+    }
+
+    state.cachedData = allRecords;
+    state.cacheTimestamp = now;
+    return allRecords;
+  } catch (err) {
+    if (state.cachedData) return state.cachedData;
+    throw err;
+  } finally {
+    state.cacheLoading = false;
+  }
+}
+
+// --- Feishu Docs Adapter (Workers fetch) ---
+const FEISHU_BASE = 'https://open.feishu.cn';
+const feishuTokenCache = { token: null, expireAt: 0 };
+let feishuTokenPromise = null;
+const FEISHU_TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000;
+const feishuDocStates = new Map();
+
+function feishuGetDocState(fileId) {
+  if (!feishuDocStates.has(fileId)) {
+    feishuDocStates.set(fileId, { cachedData: null, cacheTimestamp: 0, cacheLoading: false });
+  }
+  return feishuDocStates.get(fileId);
+}
+
+function feishuClearCache(fileId) {
+  const state = feishuGetDocState(fileId);
+  state.cachedData = null;
+  state.cacheTimestamp = 0;
+}
+
+function colToLetter(colIndex) {
+  let letter = '';
+  let idx = colIndex;
+  while (idx >= 0) {
+    letter = String.fromCharCode(65 + (idx % 26)) + letter;
+    idx = Math.floor(idx / 26) - 1;
+  }
+  return letter;
+}
+
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  const str = String(value);
+  if (/[",\n\r]/.test(str)) {
+    return '"' + str.replace(/"/g, '""') + '"';
+  }
+  return str;
+}
+
+function arrayToCsv(rows) {
+  return rows.map(row => (row || []).map(cell => csvEscape(cell)).join(',')).join('\n');
+}
+
+async function feishuRequest(method, path, headers, body) {
+  const reqHeaders = { ...headers };
+  let bodyData = null;
+  if (body !== undefined && body !== null) {
+    bodyData = JSON.stringify(body);
+    if (!reqHeaders['Content-Type']) reqHeaders['Content-Type'] = 'application/json; charset=utf-8';
+  }
+  const resp = await fetch(FEISHU_BASE + path, { method: method, headers: reqHeaders, body: bodyData });
+  const text = await resp.text();
+  if (!resp.ok) {
+    throw new Error('飞书 API 返回错误状态码 ' + resp.status + ': ' + text.substring(0, 200));
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new Error('解析飞书响应失败: ' + e.message);
+  }
+}
+
+async function getFeishuTenantAccessToken(providerConfig) {
+  const now = Date.now();
+  if (feishuTokenCache.token && (feishuTokenCache.expireAt - now) > FEISHU_TOKEN_REFRESH_THRESHOLD) {
+    return feishuTokenCache.token;
+  }
+  if (feishuTokenPromise) return feishuTokenPromise;
+
+  feishuTokenPromise = (async () => {
+    try {
+      const resp = await feishuRequest('POST', '/open-apis/auth/v3/tenant_access_token/internal',
+        { 'Content-Type': 'application/json; charset=utf-8' },
+        { app_id: providerConfig.appId, app_secret: providerConfig.appSecret });
+      if (resp.code !== 0 || !resp.tenant_access_token) {
+        throw new Error('获取飞书 tenant_access_token 失败: code=' + resp.code + ', msg=' + (resp.msg || JSON.stringify(resp).substring(0, 200)));
+      }
+      feishuTokenCache.token = resp.tenant_access_token;
+      feishuTokenCache.expireAt = Date.now() + (resp.expire || 7200) * 1000;
+      return feishuTokenCache.token;
+    } finally {
+      feishuTokenPromise = null;
+    }
+  })();
+
+  return feishuTokenPromise;
+}
+
+async function feishuAuthedRequest(providerConfig, method, path, body) {
+  const token = await getFeishuTenantAccessToken(providerConfig);
+  const headers = { 'Authorization': 'Bearer ' + token };
+  let resp = await feishuRequest(method, path, headers, body);
+
+  // 令牌过期或无效：刷新后重试一次
+  if (resp.code === 99991661 || resp.code === 99991663) {
+    feishuTokenCache.token = null;
+    feishuTokenCache.expireAt = 0;
+    const newToken = await getFeishuTenantAccessToken(providerConfig);
+    headers['Authorization'] = 'Bearer ' + newToken;
+    resp = await feishuRequest(method, path, headers, body);
+  }
+  return resp;
+}
+
+async function feishuInit(providerConfig, state) {
+  // no-op: token fetched lazily on first request
+}
+
+async function feishuGetSheetList(providerConfig, state, fileId) {
+  const resp = await feishuAuthedRequest(providerConfig, 'GET', '/open-apis/sheets/v3/spreadsheets/' + fileId + '/sheets/query', null);
+  if (resp.code !== 0) {
+    throw new Error('获取飞书工作表列表失败: code=' + resp.code + ', msg=' + (resp.msg || ''));
+  }
+  const sheets = (resp.data && resp.data.sheets) || [];
+  return sheets.map(s => ({
+    sheet_id: s.sheet_id,
+    sheet_name: s.title,
+    row_count: s.grid_properties ? s.grid_properties.row_count : 0,
+    col_count: s.grid_properties ? s.grid_properties.column_count : 0
+  }));
+}
+
+async function feishuReadSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow = 0) {
+  const cols = Math.max(1, Math.min(colCount, MAX_COL_COUNT));
+  const startColLetter = 'A';
+  const endColLetter = colToLetter(cols - 1);
+  const startRow1Based = startRow + 1;
+  const endRow = rowCount;
+  const range = sheetId + '!' + startColLetter + startRow1Based + ':' + endColLetter + endRow;
+
+  const resp = await feishuAuthedRequest(providerConfig, 'GET',
+    '/open-apis/sheets/v2/spreadsheets/' + fileId + '/values/' + encodeURIComponent(range) + '?valueRenderOption=ToString', null);
+  if (resp.code !== 0) {
+    throw new Error('读取飞书表格数据失败: code=' + resp.code + ', msg=' + (resp.msg || ''));
+  }
+  const values = (resp.data && resp.data.valueRange && resp.data.valueRange.values) || [];
+  return arrayToCsv(values);
+}
+
+async function feishuWriteRow(providerConfig, fileId, sheetId, startRow, values) {
+  const colCount = Math.max(1, values.length);
+  const endColLetter = colToLetter(colCount - 1);
+  const row1Based = startRow + 1;
+  const range = sheetId + '!A' + row1Based + ':' + endColLetter + row1Based;
+
+  const body = {
+    valueRange: {
+      range: range,
+      values: [values.map(v => (v === null || v === undefined) ? '' : v)]
+    }
+  };
+
+  const resp = await feishuAuthedRequest(providerConfig, 'PUT', '/open-apis/sheets/v2/spreadsheets/' + fileId + '/values', body);
+  if (resp.code !== 0) {
+    throw new Error('写入飞书表格失败: code=' + resp.code + ', msg=' + (resp.msg || ''));
+  }
+  const updatedCells = (resp.data && resp.data.updatedCells) || values.length;
+  return { updateNum: updatedCells };
+}
+
+const feishuAdapter = {
+  init: feishuInit,
+  getSheetList: feishuGetSheetList,
+  readSheetCsv: feishuReadSheetCsv,
+  writeRow: feishuWriteRow,
+  getDocState: feishuGetDocState,
+  clearCache: feishuClearCache
+};
+
+// --- Jinshan Docs Adapter (Workers fetch + Web Crypto) ---
+const JINSHAN_BASE = 'https://openapi.wps.cn';
+const jinshanDocStates = new Map();
+
+function jinshanGetDocState(fileId) {
+  if (!jinshanDocStates.has(fileId)) {
+    jinshanDocStates.set(fileId, {
+      schema: null, schemaSheetId: null, sheetId: null,
+      cachedData: null, cacheTimestamp: 0, cacheLoading: false
+    });
+  }
+  return jinshanDocStates.get(fileId);
+}
+
+function jinshanClearCache(fileId) {
+  const state = jinshanGetDocState(fileId);
+  state.schema = null;
+  state.schemaSheetId = null;
+  state.sheetId = null;
+  state.cachedData = null;
+  state.cacheTimestamp = 0;
+  state.cacheLoading = false;
+}
+
+async function jinshanInit(providerConfig, state) {
+  // no-op: WPS OpenAPI is stateless
+}
+
+async function ksoSign(appKey, method, requestURI, contentType, ksoDate, requestBody) {
+  const methodUpper = method.toUpperCase();
+  const bodyHash = requestBody ? await sha256Hex(requestBody) : '';
+  const data = 'KSO-1' + methodUpper + requestURI + (contentType || '') + ksoDate + bodyHash;
+  return await hmacSha256Base64(appKey, data);
+}
+
+async function jinshanMakeRequest(providerConfig, method, path, body) {
+  const { appId, appKey, accessToken } = providerConfig;
+  const methodUpper = method.toUpperCase();
+  const isGet = methodUpper === 'GET';
+
+  const contentType = isGet ? '' : 'application/json';
+  const requestBody = isGet ? '' : (body ? (typeof body === 'string' ? body : JSON.stringify(body)) : '');
+
+  const ksoDate = new Date().toUTCString();
+  const signature = await ksoSign(appKey, methodUpper, path, contentType, ksoDate, requestBody);
+
+  const headers = {
+    'Authorization': 'Bearer ' + accessToken,
+    'X-Kso-Authorization': 'KSO-1 ' + appId + ':' + signature,
+    'X-Kso-Date': ksoDate
+  };
+  if (!isGet) headers['Content-Type'] = contentType;
+
+  const resp = await fetch(JINSHAN_BASE + path, {
+    method: methodUpper,
+    headers: headers,
+    body: isGet ? undefined : requestBody
+  });
+  const text = await resp.text();
+  if (!resp.ok) {
+    throw new Error('WPS API 返回错误状态码 ' + resp.status + ': ' + text.substring(0, 500));
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    return text;
+  }
+}
+
+async function jinshanGetSheetList(providerConfig, state, fileId) {
+  try {
+    const resp = await jinshanMakeRequest(providerConfig, 'GET', '/v7/coop/dbsheet/' + fileId + '/sheets');
+    if (resp && resp.code === 0 && resp.data) {
+      const rawSheets = resp.data.sheets || resp.data.list || [];
+      if (Array.isArray(rawSheets) && rawSheets.length > 0) {
+        const sheets = rawSheets.map(s => ({
+          sheet_id: s.sheet_id || s.id || '',
+          sheet_name: s.sheet_name || s.name || s.title || '',
+          row_count: s.row_count || s.rowCount || 1000,
+          col_count: s.col_count || s.colCount || 10
+        }));
+        if (sheets[0] && sheets[0].sheet_id) {
+          state.sheetId = sheets[0].sheet_id;
+        }
+        return sheets;
+      }
+    }
+  } catch (e) {
+    console.warn('[jinshan-docs] 获取工作表列表失败，使用虚拟工作表: ' + e.message);
+  }
+
+  const dummy = [{ sheet_id: fileId, sheet_name: 'Sheet1', row_count: 1000, col_count: 10 }];
+  state.sheetId = fileId;
+  return dummy;
+}
+
+async function jinshanGetSchema(providerConfig, state, fileId, sheetId) {
+  if (state.schema && state.schemaSheetId === sheetId) {
+    return state.schema;
+  }
+
+  const resp = await jinshanMakeRequest(providerConfig, 'POST', '/v7/coop/dbsheet/' + fileId + '/sheets/' + sheetId + '/get-schema', {});
+  if (!resp || resp.code !== 0) {
+    const msg = (resp && (resp.msg || resp.message)) || JSON.stringify(resp);
+    throw new Error('获取 schema 失败: ' + msg);
+  }
+
+  const fields = (resp.data && resp.data.fields) ||
+    (resp.data && resp.data.schema && resp.data.schema.fields) ||
+    (resp.data && resp.data.columns) || [];
+
+  const schema = fields.map(f => ({
+    field_id: f.field_id || f.id || '',
+    field_name: f.field_name || f.name || f.title || ''
+  }));
+
+  state.schema = schema;
+  state.schemaSheetId = sheetId;
+  return schema;
+}
+
+function jinshanRecordToRow(fieldsObj, schema) {
+  return schema.map(f => {
+    let val = fieldsObj[f.field_name];
+    if (val === undefined && f.field_id) {
+      val = fieldsObj[f.field_id];
+    }
+    if (val === undefined || val === null) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+  });
+}
+
+function jinshanEscapeCsvCell(val) {
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
+    return '"' + s.replace(/"/g, '""') + '"';
+  }
+  return s;
+}
+
+function jinshanCsvRow(cells) {
+  return cells.map(jinshanEscapeCsvCell).join(',');
+}
+
+async function jinshanReadSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow = 0) {
+  const schema = await jinshanGetSchema(providerConfig, state, fileId, sheetId);
+  const fieldNames = schema.map(f => f.field_name);
+
+  const allRecords = [];
+  let pageToken = '';
+  const pageSize = 500;
+
+  do {
+    const body = { page_size: pageSize, page_token: pageToken };
+    const resp = await jinshanMakeRequest(providerConfig, 'POST', '/v7/coop/dbsheet/' + fileId + '/sheets/' + sheetId + '/records', body);
+    if (!resp || resp.code !== 0) {
+      const msg = (resp && (resp.msg || resp.message)) || JSON.stringify(resp);
+      throw new Error('读取记录失败: ' + msg);
+    }
+    const records = (resp.data && resp.data.records) || [];
+    for (const rec of records) {
+      let fieldsObj = {};
+      if (rec.fields) {
+        if (typeof rec.fields === 'string') {
+          try { fieldsObj = JSON.parse(rec.fields); } catch (e) { fieldsObj = {}; }
+        } else {
+          fieldsObj = rec.fields;
+        }
+      }
+      allRecords.push(fieldsObj);
+    }
+    pageToken = (resp.data && resp.data.page_token) || '';
+  } while (pageToken);
+
+  const lines = [];
+  lines.push(jinshanCsvRow(fieldNames));
+  for (const fieldsObj of allRecords) {
+    lines.push(jinshanCsvRow(jinshanRecordToRow(fieldsObj, schema)));
+  }
+  return lines.join('\n');
+}
+
+async function jinshanWriteRow(providerConfig, fileId, sheetId, startRow, values) {
+  const state = jinshanGetDocState(fileId);
+  const schema = await jinshanGetSchema(providerConfig, state, fileId, sheetId);
+
+  const fieldsValue = {};
+  const count = Math.min(values.length, schema.length);
+  for (let i = 0; i < count; i++) {
+    const fieldName = schema[i].field_name;
+    const val = values[i];
+    fieldsValue[fieldName] = (val === undefined || val === null) ? '' : String(val);
+  }
+
+  const body = {
+    prefer_id: false,
+    records: [{ fields_value: JSON.stringify(fieldsValue) }]
+  };
+
+  const resp = await jinshanMakeRequest(providerConfig, 'POST', '/v7/coop/dbsheet/' + fileId + '/sheets/' + sheetId + '/records/create', body);
+  if (!resp || resp.code !== 0) {
+    const msg = (resp && (resp.msg || resp.message)) || JSON.stringify(resp);
+    throw new Error('写入记录失败: ' + msg);
+  }
+
+  const created = (resp.data && resp.data.records) || [];
+  return { updateNum: created.length || 1 };
+}
+
+const jinshanAdapter = {
+  init: jinshanInit,
+  getSheetList: jinshanGetSheetList,
+  readSheetCsv: jinshanReadSheetCsv,
+  writeRow: jinshanWriteRow,
+  getDocState: jinshanGetDocState,
+  clearCache: jinshanClearCache
+};
+
+// --- Doc Provider Dispatcher ---
+const PROVIDERS = { tencent: tencentAdapter, feishu: feishuAdapter, jinshan: jinshanAdapter };
+const PROVIDER_LABELS = { tencent: '腾讯文档', feishu: '飞书', jinshan: '金山文档' };
+const PROVIDER_ID_LABELS = { tencent: 'File ID', feishu: 'Spreadsheet Token', jinshan: 'File ID' };
+const PROVIDER_ID_HINTS = {
+  tencent: '从腾讯文档 URL 中获取',
+  feishu: '从飞书表格 URL 中获取（如 https://xxx.feishu.cn/sheets/{token}）',
+  jinshan: '从金山文档 URL 中获取'
+};
+
+function dpGetAdapter(doc) {
+  const provider = (doc && doc.provider) || 'tencent';
+  return PROVIDERS[provider] || tencentAdapter;
+}
+
+function dpGetProviderConfig(config, doc) {
+  const provider = (doc && doc.provider) || 'tencent';
+  switch (provider) {
+    case 'feishu': return config.feishuDocs || { appId: '', appSecret: '' };
+    case 'jinshan': return config.jinshanDocs || { appId: '', appKey: '', accessToken: '' };
+    default: return config.tencentDocs || { apiKey: '', mcpUrl: 'https://docs.qq.com/openapi/mcp' };
+  }
+}
+
+async function dpFetchData(doc, config, cacheTTL) {
+  const adapter = dpGetAdapter(doc);
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return sharedFetchData(adapter, doc, providerConfig, cacheTTL);
+}
+
+async function dpGetSheetList(doc, config, state, fileId) {
+  const adapter = dpGetAdapter(doc);
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return adapter.getSheetList(providerConfig, state, fileId);
+}
+
+async function dpReadSheetCsv(doc, config, state, fileId, sheetId, rowCount, colCount, startRow) {
+  const adapter = dpGetAdapter(doc);
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return adapter.readSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow || 0);
+}
+
+async function dpWriteRow(doc, config, fileId, sheetId, startRow, values) {
+  const adapter = dpGetAdapter(doc);
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return adapter.writeRow(providerConfig, fileId, sheetId, startRow, values);
+}
+
+function dpGetDocState(doc, fileId) {
+  return dpGetAdapter(doc).getDocState(fileId);
+}
+
+function dpClearCache(doc, fileId) {
+  dpGetAdapter(doc).clearCache(fileId);
+}
+
+const docProvider = {
+  getAdapter: dpGetAdapter,
+  getProviderConfig: dpGetProviderConfig,
+  fetchData: dpFetchData,
+  searchRecords: searchRecords,
+  parseCsvLine: parseCsvLine,
+  parseSheetCsv: parseSheetCsv,
+  getDocState: dpGetDocState,
+  clearCache: dpClearCache,
+  getSheetList: dpGetSheetList,
+  readSheetCsv: dpReadSheetCsv,
+  writeRow: dpWriteRow
+};
+
+// 从 startRow 开始查找第一个全空行，用于追加写入
+async function findNextEmptyRow(doc, config, state, fileId, sheetId, startRow, colCount, maxRowCount) {
+  let currentRow = startRow;
+  while (currentRow < maxRowCount) {
+    const endRow = Math.min(currentRow + EMPTY_ROW_BATCH_SIZE, maxRowCount);
+    const csv = await docProvider.readSheetCsv(doc, config, state, fileId, sheetId, endRow, colCount, currentRow);
+    const allLines = csv.split('\n');
+    const expectedRows = endRow - currentRow;
+    for (let i = 0; i < Math.min(allLines.length, expectedRows); i++) {
+      const cells = docProvider.parseCsvLine(allLines[i]);
+      if (cells.every(c => !c || !c.trim())) {
+        return currentRow + i;
+      }
+    }
+    currentRow += EMPTY_ROW_BATCH_SIZE;
+  }
+  return maxRowCount;
 }
 
 // --- Wangdian (旺店通) API Client (CF Worker adapted) ---
@@ -2717,7 +3321,7 @@ export default {
 
     // Version API
     if (url.pathname === '/api/version' && request.method === 'GET') {
-      return jsonResponse({ success: true, data: { version: env.VERSION || '2.3.0' } });
+      return jsonResponse({ success: true, data: { version: env.VERSION || '2.4.0' } });
     }
 
     // Settings password API
@@ -2750,6 +3354,11 @@ export default {
     if (url.pathname === '/api/config' && request.method === 'GET') {
       const safeConfig = JSON.parse(JSON.stringify(config));
       if (safeConfig.tencentDocs) safeConfig.tencentDocs.apiKey = maskApiKey(safeConfig.tencentDocs.apiKey);
+      safeConfig.feishuDocs = safeConfig.feishuDocs || { appId: '', appSecret: '' };
+      safeConfig.feishuDocs.appSecret = maskApiKey(safeConfig.feishuDocs.appSecret || '');
+      safeConfig.jinshanDocs = safeConfig.jinshanDocs || { appId: '', appKey: '', accessToken: '' };
+      safeConfig.jinshanDocs.appKey = maskApiKey(safeConfig.jinshanDocs.appKey || '');
+      safeConfig.jinshanDocs.accessToken = maskApiKey(safeConfig.jinshanDocs.accessToken || '');
       if (safeConfig.llm) safeConfig.llm.apiKey = maskApiKey(safeConfig.llm.apiKey);
       return jsonResponse({ success: true, data: safeConfig });
     }
@@ -2768,6 +3377,19 @@ export default {
           newConfig.tencentDocs = {
             apiKey: (body.tencentDocs.apiKey && !body.tencentDocs.apiKey.includes('****')) ? body.tencentDocs.apiKey : config.tencentDocs.apiKey,
             mcpUrl: body.tencentDocs.mcpUrl || config.tencentDocs.mcpUrl
+          };
+        }
+        if (body.feishuDocs) {
+          newConfig.feishuDocs = {
+            appId: body.feishuDocs.appId !== undefined ? body.feishuDocs.appId : (config.feishuDocs || {}).appId,
+            appSecret: (body.feishuDocs.appSecret && !body.feishuDocs.appSecret.includes('****')) ? body.feishuDocs.appSecret : (config.feishuDocs || {}).appSecret
+          };
+        }
+        if (body.jinshanDocs) {
+          newConfig.jinshanDocs = {
+            appId: body.jinshanDocs.appId !== undefined ? body.jinshanDocs.appId : (config.jinshanDocs || {}).appId,
+            appKey: (body.jinshanDocs.appKey && !body.jinshanDocs.appKey.includes('****')) ? body.jinshanDocs.appKey : (config.jinshanDocs || {}).appKey,
+            accessToken: (body.jinshanDocs.accessToken && !body.jinshanDocs.accessToken.includes('****')) ? body.jinshanDocs.accessToken : (config.jinshanDocs || {}).accessToken
           };
         }
         if (body.llm) {
@@ -2805,8 +3427,8 @@ export default {
       const doc = getDocumentById(config, docId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       try {
-        const records = await fetchData(doc, config.tencentDocs);
-        const results = searchRecords(records, query);
+        const records = await docProvider.fetchData(doc, config, config.cache.ttl);
+        const results = docProvider.searchRecords(records, query);
         return jsonResponse({
           success: true, query: query, docName: doc.name, total: results.length,
           data: results.map(r => ({
@@ -2828,7 +3450,8 @@ export default {
       const doc = getDocumentById(config, docId);
       if (!doc) return jsonResponse({ success: false, error: '未找到指定文档' }, 400);
       try {
-        const records = await fetchData(doc, config.tencentDocs);
+        docProvider.clearCache(doc, doc.fileId);
+        const records = await docProvider.fetchData(doc, config, config.cache.ttl);
         return jsonResponse({ success: true, message: '数据刷新成功', total: records.length });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);
@@ -2866,15 +3489,18 @@ export default {
       if (!target) return jsonResponse({ success: false, error: '未找到指定的写入目标表格' }, 400);
       try {
         const targetFileId = target.fileId || doc.fileId;
-        const sid = await initMcpSession(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey);
-        const sheets = await getSheetList(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId);
+        const adapter = docProvider.getAdapter(doc);
+        const providerConfig = docProvider.getProviderConfig(config, doc);
+        const state = adapter.getDocState(targetFileId);
+        if (adapter.init) await adapter.init(providerConfig, state);
+        const sheets = await adapter.getSheetList(providerConfig, state, targetFileId);
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
-        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
+        const csv = await adapter.readSheetCsv(providerConfig, state, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
         const allLines = csv.split('\n');
         const lines = allLines.filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
-        const headers = parseCsvLine(lines[0]);
+        const headers = docProvider.parseCsvLine(lines[0]);
         // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
         while (headers.length > 0 && !headers[headers.length - 1].trim()) {
           headers.pop();
@@ -2902,15 +3528,18 @@ export default {
       if (description.length > MAX_DESCRIPTION_LENGTH) return jsonResponse({ success: false, error: '描述内容过长，最大支持 ' + MAX_DESCRIPTION_LENGTH + ' 个字符' }, 400);
       try {
         const targetFileId = target.fileId || doc.fileId;
-        const sid = await initMcpSession(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey);
-        const sheets = await getSheetList(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId);
+        const adapter = docProvider.getAdapter(doc);
+        const providerConfig = docProvider.getProviderConfig(config, doc);
+        const state = adapter.getDocState(targetFileId);
+        if (adapter.init) await adapter.init(providerConfig, state);
+        const sheets = await adapter.getSheetList(providerConfig, state, targetFileId);
         const sheet = sheets.find(s => s.sheet_name === target.sheetName) || sheets[0];
         if (!sheet) return jsonResponse({ success: false, error: '文档中未找到任何工作表' }, 400);
-        const csv = await readSheetCsv(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
+        const csv = await adapter.readSheetCsv(providerConfig, state, targetFileId, sheet.sheet_id, Math.min(sheet.row_count, HEADER_SAMPLE_ROW_LIMIT), sheet.col_count);
         const allLines = csv.split('\n');
         const lines = allLines.filter(l => l.trim());
         if (lines.length === 0) return jsonResponse({ success: false, error: '工作表为空' }, 400);
-        const headers = parseCsvLine(lines[0]);
+        const headers = docProvider.parseCsvLine(lines[0]);
         // 去除标题行末尾连续的空列，避免写入时产生多余空列导致视觉错位
         while (headers.length > 0 && !headers[headers.length - 1].trim()) {
           headers.pop();
@@ -2935,7 +3564,7 @@ export default {
         // 查找第一个空行时保留空行，避免跳过空行导致追加时间隔一行
         let emptyRowIndex = allLines.length;
         for (let i = 1; i < allLines.length; i++) {
-          const cells = parseCsvLine(allLines[i]);
+          const cells = docProvider.parseCsvLine(allLines[i]);
           const isEmpty = cells.every(c => !c || !c.trim());
           if (isEmpty) { emptyRowIndex = i; break; }
         }
@@ -2953,7 +3582,7 @@ export default {
           if (newLogisticsNo) {
             // 在已有行中搜索匹配的物流单号
             for (let i = 1; i < allLines.length; i++) {
-              const rowCells = parseCsvLine(allLines[i]);
+              const rowCells = docProvider.parseCsvLine(allLines[i]);
               const existingNo = (rowCells[logisticsColIdx] || '').trim();
               if (existingNo === newLogisticsNo) {
                 // 补齐 rowCells 到 headers 长度
@@ -3060,17 +3689,21 @@ export default {
       if (nonEmptyCount === 0) return jsonResponse({ success: false, error: '写入数据全为空，已阻止写入' }, 400);
       const writeDocId = targetFileId || doc.fileId;
       try {
-        const sid = await initMcpSession(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey);
-        const sheets = await getSheetList(config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid, writeDocId);
+        const adapter = docProvider.getAdapter(doc);
+        const providerConfig = docProvider.getProviderConfig(config, doc);
+        const state = adapter.getDocState(writeDocId);
+        if (adapter.init) await adapter.init(providerConfig, state);
+        const sheets = await adapter.getSheetList(providerConfig, state, writeDocId);
         const sheet = sheets.find(s => s.sheet_id === sheetId);
         if (!sheet) return jsonResponse({ success: false, error: '未找到指定工作表' }, 400);
         // 执行写入前重新查找第一个空行，确保追加到已有内容的下一行
         const actualRow = await findNextEmptyRow(
-          config.tencentDocs.mcpUrl, config.tencentDocs.apiKey, sid,
+          doc, config, state,
           writeDocId, sheetId, targetRow, sheet.col_count, sheet.row_count
         );
 
-        const result = await writeRow(config.tencentDocs, sid, writeDocId, sheetId, actualRow, values);
+        const result = await adapter.writeRow(providerConfig, writeDocId, sheetId, actualRow, values);
+        adapter.clearCache(writeDocId);
         return jsonResponse({ success: true, message: '登记成功，更新了 ' + result.updateNum + ' 个单元格', data: { updateNum: result.updateNum, row: actualRow } });
       } catch (err) {
         return jsonResponse({ success: false, error: err.message }, 500);

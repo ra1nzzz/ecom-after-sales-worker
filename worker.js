@@ -2243,6 +2243,7 @@ const tencentAdapter = {
   getSheetList: tencentGetSheetList,
   readSheetCsv: tencentReadSheetCsv,
   writeRow: tencentWriteRow,
+  findEmptyRow: null,
   getDocState: tencentGetDocState,
   clearCache: tencentClearCache
 };
@@ -2518,6 +2519,7 @@ const feishuAdapter = {
   getSheetList: feishuGetSheetList,
   readSheetCsv: feishuReadSheetCsv,
   writeRow: feishuWriteRow,
+  findEmptyRow: null,
   getDocState: feishuGetDocState,
   clearCache: feishuClearCache
 };
@@ -2714,11 +2716,24 @@ async function jinshanWriteRow(providerConfig, state, fileId, sheetId, startRow,
   return { updateNum: created.length || 1 };
 }
 
+async function jinshanFindEmptyRow(providerConfig, state, fileId, sheetId, startRow, colCount, maxRowCount) {
+  const csv = await jinshanReadSheetCsv(providerConfig, state, fileId, sheetId, maxRowCount, colCount);
+  const lines = splitCsvLines(csv);
+  for (let i = Math.max(1, startRow); i < lines.length; i++) {
+    const cells = parseCsvLine(lines[i]);
+    if (cells.every(c => !c || !c.trim())) {
+      return i;
+    }
+  }
+  return lines.length;
+}
+
 const jinshanAdapter = {
   init: jinshanInit,
   getSheetList: jinshanGetSheetList,
   readSheetCsv: jinshanReadSheetCsv,
   writeRow: jinshanWriteRow,
+  findEmptyRow: jinshanFindEmptyRow,
   getDocState: jinshanGetDocState,
   clearCache: jinshanClearCache
 };
@@ -2787,6 +2802,13 @@ function dpClearCache(doc, fileId) {
   dpGetAdapter(doc).clearCache(fileId);
 }
 
+async function dpFindEmptyRow(doc, config, state, fileId, sheetId, startRow, colCount, maxRowCount) {
+  const adapter = dpGetAdapter(doc);
+  if (!adapter.findEmptyRow) return null;
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return adapter.findEmptyRow(providerConfig, state, fileId, sheetId, startRow, colCount, maxRowCount);
+}
+
 const docProvider = {
   getAdapter: dpGetAdapter,
   getProviderConfig: dpGetProviderConfig,
@@ -2799,11 +2821,17 @@ const docProvider = {
   getSheetList: dpGetSheetList,
   readSheetCsv: dpReadSheetCsv,
   init: dpInit,
-  writeRow: dpWriteRow
+  writeRow: dpWriteRow,
+  findEmptyRow: dpFindEmptyRow
 };
 
 // 从 startRow 开始查找第一个全空行，用于追加写入
 async function findNextEmptyRow(doc, config, state, fileId, sheetId, startRow, colCount, maxRowCount) {
+  // 优先使用适配器自带的 findEmptyRow
+  const adapterRow = await docProvider.findEmptyRow(doc, config, state, fileId, sheetId, startRow, colCount, maxRowCount);
+  if (adapterRow !== null) return adapterRow;
+
+  // 默认：按批次扫描（腾讯/飞书）
   let currentRow = startRow;
   while (currentRow < maxRowCount) {
     const endRow = Math.min(currentRow + EMPTY_ROW_BATCH_SIZE, maxRowCount);

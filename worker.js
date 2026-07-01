@@ -2014,6 +2014,18 @@ const MAX_DESCRIPTION_LENGTH = 5000; // LLM 提取描述的最大字符数
 const HEADER_SAMPLE_ROW_LIMIT = 50; // 读取表头采样时的最大行数
 const MAX_COL_COUNT = 10; // 读取单元格数据时限制的最大列数
 const EMPTY_ROW_BATCH_SIZE = 50;
+const REQUEST_TIMEOUT = 60000; // HTTP 请求统一超时（毫秒）
+
+// 售后业务的字段映射规则（可被 docConfig.fieldMap 覆盖）
+const DEFAULT_FIELD_MAP = [
+  { key: '快递单号', match: ['快递单号', '单号'] },
+  { key: '登记日期', match: ['登记日期', '日期'] },
+  { key: '商品名称', match: ['商品名称', '货品'] },
+  { key: '正品数量', match: ['正品'] },
+  { key: '次品备注', match: ['次品备注', '残品备注'] },
+  { key: '次品数量', match: ['次品', '残品'] },
+  { key: '备注', match: ['备注'], exact: true }
+];
 
 // --- Shared Constants (mirror of local/src/constants.js, keep in sync) ---
 const PLATFORMS = ['京东','淘宝','天猫','拼多多','抖音','快手','小红书','微信','有赞','微店','苏宁','唯品会','当当','1688','阿里'];
@@ -2037,22 +2049,81 @@ async function sha256Hex(data) {
   return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-// --- Tencent Docs Adapter (MCP, Workers fetch) ---
-const tencentDocStates = new Map();
+// --- Shared State & CSV Utilities (mirror of local/src/shared-docs.js) ---
 
-function tencentGetDocState(fileId) {
-  if (!tencentDocStates.has(fileId)) {
-    tencentDocStates.set(fileId, { mcpSessionId: null, cachedData: null, cacheTimestamp: 0, cacheLoading: false });
+function createDocState(extra = {}) {
+  return {
+    cachedData: null,
+    cacheTimestamp: 0,
+    cacheLoading: false,
+    loadingPromise: null,
+    ...extra
+  };
+}
+
+function makeGetDocState(extra = {}) {
+  const states = new Map();
+  return function getDocState(fileId) {
+    if (!states.has(fileId)) {
+      states.set(fileId, createDocState(extra));
+    }
+    return states.get(fileId);
+  };
+}
+
+function makeClearCache(getDocState, extraClear) {
+  return function clearCache(fileId) {
+    const state = getDocState(fileId);
+    state.cachedData = null;
+    state.cacheTimestamp = 0;
+    state.cacheLoading = false;
+    state.loadingPromise = null;
+    if (extraClear) extraClear(state);
+  };
+}
+
+function splitCsvLines(csvText) {
+  const lines = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < csvText.length; i++) {
+    const ch = csvText[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+      current += ch;
+    } else if (ch === '\n' && !inQuotes) {
+      lines.push(current);
+      current = '';
+    } else if (ch === '\r' && !inQuotes) {
+      // skip \r
+    } else {
+      current += ch;
+    }
   }
-  return tencentDocStates.get(fileId);
+  if (current) lines.push(current);
+  return lines;
 }
 
-function tencentClearCache(fileId) {
-  const state = tencentGetDocState(fileId);
-  state.cachedData = null;
-  state.cacheTimestamp = 0;
-  state.mcpSessionId = null;
+function csvEscape(value) {
+  if (value === null || value === undefined) return '';
+  const s = String(value);
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 }
+
+function csvRow(cells) {
+  return (cells || []).map(csvEscape).join(',');
+}
+
+function arrayToCsv(rows) {
+  return (rows || []).map(csvRow).join('\n');
+}
+
+// --- Tencent Docs Adapter (MCP, Workers fetch) ---
+const tencentGetDocState = makeGetDocState({ mcpSessionId: null, initPromise: null });
+const tencentClearCache = makeClearCache(tencentGetDocState, (state) => {
+  state.mcpSessionId = null;
+  state.initPromise = null;
+});
 
 async function callMcpApi(mcpUrl, apiKey, method, params, sessionId) {
   const headers = { 'Content-Type': 'application/json', 'Authorization': apiKey };
@@ -2109,9 +2180,17 @@ function extractText(toolResult) {
 }
 
 async function tencentInit(providerConfig, state) {
-  const { mcpUrl, apiKey } = providerConfig;
   if (state.mcpSessionId) return;
-  state.mcpSessionId = await initMcpSession(mcpUrl, apiKey);
+  if (state.initPromise) return state.initPromise;
+  state.initPromise = (async () => {
+    try {
+      const { mcpUrl, apiKey } = providerConfig;
+      state.mcpSessionId = await initMcpSession(mcpUrl, apiKey);
+    } finally {
+      state.initPromise = null;
+    }
+  })();
+  return state.initPromise;
 }
 
 async function tencentGetSheetList(providerConfig, state, fileId) {
@@ -2138,9 +2217,8 @@ async function tencentReadSheetCsv(providerConfig, state, fileId, sheetId, rowCo
   return extractText(result);
 }
 
-async function tencentWriteRow(providerConfig, fileId, sheetId, startRow, values) {
+async function tencentWriteRow(providerConfig, state, fileId, sheetId, startRow, values) {
   const { mcpUrl, apiKey } = providerConfig;
-  const state = tencentGetDocState(fileId);
   await tencentInit(providerConfig, state);
   // 腾讯文档 sheet.set_range_value 接口中 row/col 均为 0-based
   const cellValues = values.map((val, idx) => ({
@@ -2189,34 +2267,42 @@ function parseCsvLine(line) {
   return cells;
 }
 
-function parseSheetCsv(csvText, sheetName) {
-  const lines = csvText.split('\n').filter(l => l.trim());
+function parseSheetCsv(csvText, sheetName, fieldMap) {
+  const fm = fieldMap || DEFAULT_FIELD_MAP;
+  const lines = splitCsvLines(csvText).filter(l => l.trim());
   if (lines.length < 2) return [];
+
   const headerCells = parseCsvLine(lines[0]);
-  const trackingIdx = headerCells.findIndex(h => h.includes('快递单号') || h.includes('单号'));
-  if (trackingIdx === -1) return [];
-  const dateIdx = headerCells.findIndex(h => h.includes('登记日期') || h.includes('日期'));
-  const productIdx = headerCells.findIndex(h => h.includes('商品名称') || h.includes('货品'));
-  const genuineIdx = headerCells.findIndex(h => h.includes('正品'));
-  const defectIdx = headerCells.findIndex(h => h.includes('次品') || h.includes('残品'));
-  const defectNoteIdx = headerCells.findIndex(h => h.includes('次品备注') || h.includes('残品备注'));
-  const remarkIdx = headerCells.findIndex(h => h === '备注');
+
+  // 按字段映射规则定位列索引（先匹配长关键词，避免"次品"误匹配"次品备注"）
+  const colIndices = {};
+  for (const field of fm) {
+    for (let i = 0; i < headerCells.length; i++) {
+      const h = headerCells[i];
+      if (field.exact) {
+        if (h === field.match[0]) { colIndices[field.key] = i; break; }
+      } else {
+        if (field.match.some(m => h.includes(m))) { colIndices[field.key] = i; break; }
+      }
+    }
+  }
+
+  if (colIndices['快递单号'] === undefined) return [];
+
   const records = [];
   for (let i = 1; i < lines.length; i++) {
     const cells = parseCsvLine(lines[i]);
-    const trackingNo = (cells[trackingIdx] || '').trim();
+    const trackingNo = (cells[colIndices['快递单号']] || '').trim();
     if (!trackingNo) continue;
-    records.push({
-      _source: sheetName,
-      '登记日期': dateIdx >= 0 ? (cells[dateIdx] || '').trim() : '',
-      '快递单号': trackingNo,
-      '商品名称': productIdx >= 0 ? (cells[productIdx] || '').trim() : '',
-      '正品数量': genuineIdx >= 0 ? (cells[genuineIdx] || '').trim() : '',
-      '次品数量': defectIdx >= 0 ? (cells[defectIdx] || '').trim() : '',
-      '次品备注': defectNoteIdx >= 0 ? (cells[defectNoteIdx] || '').trim() : '',
-      '备注': remarkIdx >= 0 ? (cells[remarkIdx] || '').trim() : ''
-    });
+
+    const record = { _source: sheetName };
+    for (const field of fm) {
+      const idx = colIndices[field.key];
+      record[field.key] = idx !== undefined ? (cells[idx] || '').trim() : '';
+    }
+    records.push(record);
   }
+
   return records;
 }
 
@@ -2231,47 +2317,65 @@ async function sharedFetchData(adapter, docConfig, providerConfig, cacheTTL) {
   const state = adapter.getDocState(docConfig.fileId);
   const now = Date.now();
 
+  // 缓存命中
   if (state.cachedData && (now - state.cacheTimestamp) < cacheTTL) {
     return state.cachedData;
   }
 
-  if (state.cacheLoading) {
-    if (state.cachedData) return state.cachedData;
+  // 并发去重：复用正在进行的加载 Promise
+  if (state.loadingPromise) {
+    return state.loadingPromise;
   }
 
-  state.cacheLoading = true;
-  try {
-    if (adapter.init) await adapter.init(providerConfig, state);
-    const sheets = await adapter.getSheetList(providerConfig, state, docConfig.fileId);
+  state.loadingPromise = (async () => {
+    try {
+      state.cacheLoading = true;
+      if (adapter.init) await adapter.init(providerConfig, state);
+      const sheets = await adapter.getSheetList(providerConfig, state, docConfig.fileId);
 
-    const keywords = docConfig.readSheetKeywords || ['客退', '退货'];
-    const dataSheets = sheets.filter(sheet => keywords.some(kw => sheet.sheet_name.includes(kw)));
+      const keywords = docConfig.readSheetKeywords || [];
+      const dataSheets = keywords.length > 0
+        ? sheets.filter(sheet => keywords.some(kw => sheet.sheet_name.includes(kw)))
+        : sheets;
 
-    const results = await Promise.allSettled(
-      dataSheets.map(sheet =>
-        adapter.readSheetCsv(providerConfig, state, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count)
-          .then(csv => parseSheetCsv(csv, sheet.sheet_name))
-      )
-    );
+      const results = await Promise.allSettled(
+        dataSheets.map(sheet =>
+          adapter.readSheetCsv(providerConfig, state, docConfig.fileId, sheet.sheet_id, sheet.row_count, sheet.col_count)
+            .then(csv => parseSheetCsv(csv, sheet.sheet_name))
+        )
+      );
 
-    const allRecords = [];
-    for (let i = 0; i < results.length; i++) {
-      if (results[i].status === 'fulfilled') {
-        allRecords.push(...results[i].value);
-      } else if (results[i].status === 'rejected') {
-        console.error('读取失败 [' + dataSheets[i].sheet_name + ']: ' + (results[i].reason && results[i].reason.message));
+      const allRecords = [];
+      let hasFailure = false;
+      for (let i = 0; i < results.length; i++) {
+        if (results[i].status === 'fulfilled') {
+          const val = results[i].value;
+          // 逐条 push 避免大数组 spread 栈溢出
+          for (let j = 0; j < val.length; j++) {
+            allRecords.push(val[j]);
+          }
+        } else {
+          hasFailure = true;
+          console.error('    读取失败 [' + dataSheets[i].sheet_name + ']: ' + (results[i].reason && results[i].reason.message));
+        }
       }
-    }
 
-    state.cachedData = allRecords;
-    state.cacheTimestamp = now;
-    return allRecords;
-  } catch (err) {
-    if (state.cachedData) return state.cachedData;
-    throw err;
-  } finally {
-    state.cacheLoading = false;
-  }
+      // 仅在有数据或全部成功时更新缓存，避免瞬时故障固化为空缓存
+      if (allRecords.length > 0 || !hasFailure) {
+        state.cachedData = allRecords;
+        state.cacheTimestamp = Date.now();
+      }
+      return allRecords;
+    } catch (err) {
+      if (state.cachedData) return state.cachedData;
+      throw err;
+    } finally {
+      state.cacheLoading = false;
+      state.loadingPromise = null;
+    }
+  })();
+
+  return state.loadingPromise;
 }
 
 // --- Feishu Docs Adapter (Workers fetch) ---
@@ -2279,20 +2383,8 @@ const FEISHU_BASE = 'https://open.feishu.cn';
 const feishuTokenCache = { token: null, expireAt: 0 };
 let feishuTokenPromise = null;
 const FEISHU_TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000;
-const feishuDocStates = new Map();
-
-function feishuGetDocState(fileId) {
-  if (!feishuDocStates.has(fileId)) {
-    feishuDocStates.set(fileId, { cachedData: null, cacheTimestamp: 0, cacheLoading: false });
-  }
-  return feishuDocStates.get(fileId);
-}
-
-function feishuClearCache(fileId) {
-  const state = feishuGetDocState(fileId);
-  state.cachedData = null;
-  state.cacheTimestamp = 0;
-}
+const feishuGetDocState = makeGetDocState();
+const feishuClearCache = makeClearCache(feishuGetDocState);
 
 function colToLetter(colIndex) {
   let letter = '';
@@ -2302,19 +2394,6 @@ function colToLetter(colIndex) {
     idx = Math.floor(idx / 26) - 1;
   }
   return letter;
-}
-
-function csvEscape(value) {
-  if (value === null || value === undefined) return '';
-  const str = String(value);
-  if (/[",\n\r]/.test(str)) {
-    return '"' + str.replace(/"/g, '""') + '"';
-  }
-  return str;
-}
-
-function arrayToCsv(rows) {
-  return rows.map(row => (row || []).map(cell => csvEscape(cell)).join(',')).join('\n');
 }
 
 async function feishuRequest(method, path, headers, body) {
@@ -2413,7 +2492,7 @@ async function feishuReadSheetCsv(providerConfig, state, fileId, sheetId, rowCou
   return arrayToCsv(values);
 }
 
-async function feishuWriteRow(providerConfig, fileId, sheetId, startRow, values) {
+async function feishuWriteRow(providerConfig, state, fileId, sheetId, startRow, values) {
   const colCount = Math.max(1, values.length);
   const endColLetter = colToLetter(colCount - 1);
   const row1Based = startRow + 1;
@@ -2445,27 +2524,11 @@ const feishuAdapter = {
 
 // --- Jinshan Docs Adapter (Workers fetch + Web Crypto) ---
 const JINSHAN_BASE = 'https://openapi.wps.cn';
-const jinshanDocStates = new Map();
-
-function jinshanGetDocState(fileId) {
-  if (!jinshanDocStates.has(fileId)) {
-    jinshanDocStates.set(fileId, {
-      schema: null, schemaSheetId: null, sheetId: null,
-      cachedData: null, cacheTimestamp: 0, cacheLoading: false
-    });
-  }
-  return jinshanDocStates.get(fileId);
-}
-
-function jinshanClearCache(fileId) {
-  const state = jinshanGetDocState(fileId);
+const jinshanGetDocState = makeGetDocState({ schema: null, schemaSheetId: null });
+const jinshanClearCache = makeClearCache(jinshanGetDocState, (state) => {
   state.schema = null;
   state.schemaSheetId = null;
-  state.sheetId = null;
-  state.cachedData = null;
-  state.cacheTimestamp = 0;
-  state.cacheLoading = false;
-}
+});
 
 async function jinshanInit(providerConfig, state) {
   // no-op: WPS OpenAPI is stateless
@@ -2530,8 +2593,14 @@ async function jinshanGetSheetList(providerConfig, state, fileId) {
         return sheets;
       }
     }
-  } catch (e) {
-    console.warn('[jinshan-docs] 获取工作表列表失败，使用虚拟工作表: ' + e.message);
+  } catch (err) {
+    // 鉴权/签名错误不应被静默吞掉
+    const msg = (err && err.message) || '';
+    if (msg.includes('状态码 401') || msg.includes('状态码 403') || msg.includes('鉴权')) {
+      throw new Error('金山文档鉴权失败: ' + msg + '，请检查 App ID/App Key/Access Token 配置');
+    }
+    // 其他错误（接口不可用等）- 回退到虚拟工作表
+    console.warn('[jinshan-docs] 获取工作表列表失败，使用虚拟工作表: ' + msg);
   }
 
   const dummy = [{ sheet_id: fileId, sheet_name: 'Sheet1', row_count: 1000, col_count: 10 }];
@@ -2576,25 +2645,16 @@ function jinshanRecordToRow(fieldsObj, schema) {
   });
 }
 
-function jinshanEscapeCsvCell(val) {
-  const s = String(val);
-  if (s.includes(',') || s.includes('"') || s.includes('\n') || s.includes('\r')) {
-    return '"' + s.replace(/"/g, '""') + '"';
-  }
-  return s;
-}
-
-function jinshanCsvRow(cells) {
-  return cells.map(jinshanEscapeCsvCell).join(',');
-}
-
 async function jinshanReadSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow = 0) {
   const schema = await jinshanGetSchema(providerConfig, state, fileId, sheetId);
   const fieldNames = schema.map(f => f.field_name);
 
+  // 分页拉取全部记录
   const allRecords = [];
   let pageToken = '';
   const pageSize = 500;
+  const MAX_PAGES = 200;
+  let pageCount = 0;
 
   do {
     const body = { page_size: pageSize, page_token: pageToken };
@@ -2616,18 +2676,19 @@ async function jinshanReadSheetCsv(providerConfig, state, fileId, sheetId, rowCo
       allRecords.push(fieldsObj);
     }
     pageToken = (resp.data && resp.data.page_token) || '';
-  } while (pageToken);
+    pageCount++;
+  } while (pageToken && pageCount < MAX_PAGES);
+  if (pageToken) console.warn('[jinshan-docs] readSheetCsv: reached max pages, data may be incomplete');
 
   const lines = [];
-  lines.push(jinshanCsvRow(fieldNames));
+  lines.push(csvRow(fieldNames));
   for (const fieldsObj of allRecords) {
-    lines.push(jinshanCsvRow(jinshanRecordToRow(fieldsObj, schema)));
+    lines.push(csvRow(jinshanRecordToRow(fieldsObj, schema)));
   }
   return lines.join('\n');
 }
 
-async function jinshanWriteRow(providerConfig, fileId, sheetId, startRow, values) {
-  const state = jinshanGetDocState(fileId);
+async function jinshanWriteRow(providerConfig, state, fileId, sheetId, startRow, values) {
   const schema = await jinshanGetSchema(providerConfig, state, fileId, sheetId);
 
   const fieldsValue = {};
@@ -2664,13 +2725,18 @@ const jinshanAdapter = {
 
 // --- Doc Provider Dispatcher ---
 const PROVIDERS = { tencent: tencentAdapter, feishu: feishuAdapter, jinshan: jinshanAdapter };
-const PROVIDER_LABELS = { tencent: '腾讯文档', feishu: '飞书', jinshan: '金山文档' };
-const PROVIDER_ID_LABELS = { tencent: 'File ID', feishu: 'Spreadsheet Token', jinshan: 'File ID' };
-const PROVIDER_ID_HINTS = {
-  tencent: '从腾讯文档 URL 中获取',
-  feishu: '从飞书表格 URL 中获取（如 https://xxx.feishu.cn/sheets/{token}）',
-  jinshan: '从金山文档 URL 中获取'
+
+// 适配器元数据：数据驱动的配置掩码/校验/标签
+const ADAPTER_META = {
+  tencent: { configKey: 'tencentDocs', label: '腾讯文档', sensitiveFields: ['apiKey'], requiredFields: ['apiKey'], idLabel: 'File ID', idHint: '从腾讯文档URL中获取' },
+  feishu: { configKey: 'feishuDocs', label: '飞书', sensitiveFields: ['appSecret'], requiredFields: ['appId'], idLabel: 'Spreadsheet Token', idHint: '从飞书表格URL获取' },
+  jinshan: { configKey: 'jinshanDocs', label: '金山文档', sensitiveFields: ['appKey', 'accessToken'], requiredFields: ['accessToken'], idLabel: 'File ID', idHint: '从金山文档URL中获取' }
 };
+
+// 从 ADAPTER_META 派生
+const PROVIDER_LABELS = Object.fromEntries(Object.entries(ADAPTER_META).map(([k, v]) => [k, v.label]));
+const PROVIDER_ID_LABELS = Object.fromEntries(Object.entries(ADAPTER_META).map(([k, v]) => [k, v.idLabel]));
+const PROVIDER_ID_HINTS = Object.fromEntries(Object.entries(ADAPTER_META).map(([k, v]) => [k, v.idHint]));
 
 function dpGetAdapter(doc) {
   const provider = (doc && doc.provider) || 'tencent';
@@ -2679,11 +2745,8 @@ function dpGetAdapter(doc) {
 
 function dpGetProviderConfig(config, doc) {
   const provider = (doc && doc.provider) || 'tencent';
-  switch (provider) {
-    case 'feishu': return config.feishuDocs || { appId: '', appSecret: '' };
-    case 'jinshan': return config.jinshanDocs || { appId: '', appKey: '', accessToken: '' };
-    default: return config.tencentDocs || { apiKey: '', mcpUrl: 'https://docs.qq.com/openapi/mcp' };
-  }
+  const meta = ADAPTER_META[provider] || ADAPTER_META.tencent;
+  return config[meta.configKey] || {};
 }
 
 async function dpFetchData(doc, config, cacheTTL) {
@@ -2704,10 +2767,16 @@ async function dpReadSheetCsv(doc, config, state, fileId, sheetId, rowCount, col
   return adapter.readSheetCsv(providerConfig, state, fileId, sheetId, rowCount, colCount, startRow || 0);
 }
 
-async function dpWriteRow(doc, config, fileId, sheetId, startRow, values) {
+async function dpInit(doc, config, state) {
   const adapter = dpGetAdapter(doc);
   const providerConfig = dpGetProviderConfig(config, doc);
-  return adapter.writeRow(providerConfig, fileId, sheetId, startRow, values);
+  if (adapter.init) await adapter.init(providerConfig, state);
+}
+
+async function dpWriteRow(doc, config, state, fileId, sheetId, startRow, values) {
+  const adapter = dpGetAdapter(doc);
+  const providerConfig = dpGetProviderConfig(config, doc);
+  return adapter.writeRow(providerConfig, state, fileId, sheetId, startRow, values);
 }
 
 function dpGetDocState(doc, fileId) {
@@ -2729,6 +2798,7 @@ const docProvider = {
   clearCache: dpClearCache,
   getSheetList: dpGetSheetList,
   readSheetCsv: dpReadSheetCsv,
+  init: dpInit,
   writeRow: dpWriteRow
 };
 
@@ -3353,12 +3423,14 @@ export default {
     // GET /api/config
     if (url.pathname === '/api/config' && request.method === 'GET') {
       const safeConfig = JSON.parse(JSON.stringify(config));
-      if (safeConfig.tencentDocs) safeConfig.tencentDocs.apiKey = maskApiKey(safeConfig.tencentDocs.apiKey);
-      safeConfig.feishuDocs = safeConfig.feishuDocs || { appId: '', appSecret: '' };
-      safeConfig.feishuDocs.appSecret = maskApiKey(safeConfig.feishuDocs.appSecret || '');
-      safeConfig.jinshanDocs = safeConfig.jinshanDocs || { appId: '', appKey: '', accessToken: '' };
-      safeConfig.jinshanDocs.appKey = maskApiKey(safeConfig.jinshanDocs.appKey || '');
-      safeConfig.jinshanDocs.accessToken = maskApiKey(safeConfig.jinshanDocs.accessToken || '');
+      for (const meta of Object.values(ADAPTER_META)) {
+        const cfg = safeConfig[meta.configKey];
+        if (cfg) {
+          for (const f of meta.sensitiveFields) {
+            if (cfg[f]) cfg[f] = maskApiKey(cfg[f]);
+          }
+        }
+      }
       if (safeConfig.llm) safeConfig.llm.apiKey = maskApiKey(safeConfig.llm.apiKey);
       return jsonResponse({ success: true, data: safeConfig });
     }
@@ -3373,25 +3445,26 @@ export default {
         newConfig.writeDefaultDocumentId = body.writeDefaultDocumentId || config.writeDefaultDocumentId;
         if ('defaultDocumentId' in newConfig) delete newConfig.defaultDocumentId;
         if (body.cache) newConfig.cache = body.cache;
-        if (body.tencentDocs) {
-          newConfig.tencentDocs = {
-            apiKey: (body.tencentDocs.apiKey && !body.tencentDocs.apiKey.includes('****')) ? body.tencentDocs.apiKey : config.tencentDocs.apiKey,
-            mcpUrl: body.tencentDocs.mcpUrl || config.tencentDocs.mcpUrl
-          };
+
+        for (const meta of Object.values(ADAPTER_META)) {
+          if (body[meta.configKey]) {
+            const existing = config[meta.configKey] || {};
+            const incoming = body[meta.configKey];
+            const merged = {};
+            // Get all unique keys
+            const allKeys = new Set([...Object.keys(existing), ...Object.keys(incoming)]);
+            for (const key of allKeys) {
+              if (meta.sensitiveFields.includes(key)) {
+                merged[key] = (incoming[key] && !String(incoming[key]).includes('****'))
+                  ? incoming[key] : (existing[key] || '');
+              } else {
+                merged[key] = incoming[key] !== undefined ? incoming[key] : (existing[key] || '');
+              }
+            }
+            newConfig[meta.configKey] = merged;
+          }
         }
-        if (body.feishuDocs) {
-          newConfig.feishuDocs = {
-            appId: body.feishuDocs.appId !== undefined ? body.feishuDocs.appId : (config.feishuDocs || {}).appId,
-            appSecret: (body.feishuDocs.appSecret && !body.feishuDocs.appSecret.includes('****')) ? body.feishuDocs.appSecret : (config.feishuDocs || {}).appSecret
-          };
-        }
-        if (body.jinshanDocs) {
-          newConfig.jinshanDocs = {
-            appId: body.jinshanDocs.appId !== undefined ? body.jinshanDocs.appId : (config.jinshanDocs || {}).appId,
-            appKey: (body.jinshanDocs.appKey && !body.jinshanDocs.appKey.includes('****')) ? body.jinshanDocs.appKey : (config.jinshanDocs || {}).appKey,
-            accessToken: (body.jinshanDocs.accessToken && !body.jinshanDocs.accessToken.includes('****')) ? body.jinshanDocs.accessToken : (config.jinshanDocs || {}).accessToken
-          };
-        }
+
         if (body.llm) {
           newConfig.llm = {
             provider: body.llm.provider || config.llm.provider,
@@ -3702,7 +3775,7 @@ export default {
           writeDocId, sheetId, targetRow, sheet.col_count, sheet.row_count
         );
 
-        const result = await adapter.writeRow(providerConfig, writeDocId, sheetId, actualRow, values);
+        const result = await adapter.writeRow(providerConfig, state, writeDocId, sheetId, actualRow, values);
         adapter.clearCache(writeDocId);
         return jsonResponse({ success: true, message: '登记成功，更新了 ' + result.updateNum + ' 个单元格', data: { updateNum: result.updateNum, row: actualRow } });
       } catch (err) {
